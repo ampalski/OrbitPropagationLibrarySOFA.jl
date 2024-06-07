@@ -21,7 +21,6 @@ const TTMTAI = 32.184
 const AU = 149597870.7 #km
 const CMPS = 299792458.0 #m/s
 
-
 """
     dat = DAT(MJD)
 
