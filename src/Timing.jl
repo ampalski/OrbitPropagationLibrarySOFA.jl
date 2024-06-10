@@ -69,10 +69,12 @@ function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD)
 
     mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     # Convert to full JD if MJD
-    j = sum(JD)
+    useJD = copy(JD)
     if type == :MJD
-        j += JM0
+        useJD[1] += JM0
     end
+    j = sum(useJD)
+
     # Check for date range, algorithm only valid for (1900,2100)
     if j < 2415385.5 || j > 2488068.5
         error("Julian Date out of range, only accepts 1901-2099")
@@ -96,18 +98,18 @@ function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD)
 
     dayOfYear = trunc(days)
     month = 0
-    while sum(mtab[1:month+1]) < dayOfYear
+    while sum(mtab[1:(month+1)]) < dayOfYear
         month += 1
     end
     day = dayOfYear - sum(mtab[1:month])
     month += 1
 
     #Separate date from fraction (-.5 < f < .5)
-    d = round(JD[1])
-    f1 = JD[1] - d
+    d = round(useJD[1])
+    f1 = useJD[1] - d
     jd = trunc(d)
-    d = round(JD[2])
-    f2 = JD[2] - d
+    d = round(useJD[2])
+    f2 = useJD[2] - d
     jd += trunc(d)
 
     # Kahan summation for f1+f2+.5 (Klein 2006)
@@ -281,7 +283,7 @@ function fixDateVec!(dateVec::Vector{Float64})
         dateVec[2] -= temp * 12.0
     end
 
-    dayOfYear = sum(mtab[1:(dateVec[2]-1)]) + dateVec[3]
+    dayOfYear = sum(mtab[1:(Int(dateVec[2])-1)]) + dateVec[3]
     yr = dateVec[1]
     leapYear(x) = x % 4 == 0 && (x % 100 != 0 || x % 400 == 0)
 
@@ -350,14 +352,14 @@ function UTC2TAI(JD::Vector{Float64}; type::Symbol=:JD)
     dleap = dat24 - (dat0 + dlod)
 
     # Remove any scaling applied to spread leap into preceding day
-    f = dv[6] / 86400 + dv[5] / 1440 + dv[4] / 24
-    f *= (86400 + dleap) / 86400
+    fd = dv[6] / 86400 + dv[5] / 1440 + dv[4] / 24
+    fd *= (86400 + dleap) / 86400
 
     # Scale from pre-1972 UTC seconds to SI seconds
     fd *= (86400 + dlod) / 86400
 
     # Today's calendar date to 2-part JD
-    j, m = dateVec2JDate(vcat(dv[1:3], [12.0, 0, 0]))
+    j, m = dateVec2JDate(vcat(dv[1:3], zeros(3)))
     z = type == :JD ? j : m
 
     # Assemble the TAI result
@@ -392,4 +394,239 @@ function TT2TAI(JD::Vector{Float64})
     tai = copy(JD)
     tai[2] -= dtat
     return tai
+end
+
+"""
+    JD_UTC = UT12UTC(JD_UT1)
+
+Convert a UT1 Julian Date into UTC.
+
+The values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` specifying the full Julian Date, and `:MJD` (default)
+specifying Modified Julian Date.
+
+Derived from SOFA's `ut1utc`
+"""
+function UT12UTC(JD::Vector{Float64}; type::Symbol=:MJD)
+    u1 = JD[1]
+    u2 = JD[2]
+
+    duts = dut1(JD, type=type)
+    dats1 = 0.0
+    d1 = u1
+
+    for i = -1:3
+        d2 = u2 + i
+        dateVec = JDate2dateVec(JD, type=type)
+        dats2 = DATdateVec(vcat(dateVec[1:3], zeros(3)))
+        if i == -1
+            dats1 = dats2
+        end
+        ddats = dats2 - dats1
+        if abs(ddats) >= 0.5
+            # Leap second nearby: Ensure UT1-UTC is before value
+            if ddats * duts >= 0.0
+                duts -= ddats
+            end
+
+            # UT1 for the start of the UTC day that ends in a leap
+            j, m = dateVec2JDate(vcat(dateVec[1:3], zeros(3)))
+            if type == :MJD
+                d1 = m[1]
+                d2 = m[2]
+            else
+                d1 = j[1]
+                d2 = j[2]
+            end
+            us1 = d1
+            us2 = d2 - 1.0 + duts / 86400
+
+            # Is the UT1 after this point?
+            du = u1 - us1
+            du += u2 - us2
+            if du > 0
+                # Yes: fraction of the current UTC day that has elapsed
+                fd = du * 86400 / (86400 + ddats)
+                # Ramp UT1-UTC to bring about SOFA's JD(UTC) convention
+                duts += ddats * (fd <= 1.0 ? fd : 1.0)
+            end
+            break
+        end
+        dats1 = dats2
+    end
+    u2 -= duts / 86400.0
+
+    return [u1, u2]
+end
+
+"""
+    JD_UT1 = UTC2UT1(JD_UTC)
+
+Convert a UTC Julian Date into UT1.
+
+The values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` specifying the full Julian Date, and `:MJD` (default)
+specifying Modified Julian Date.
+
+Derived from SOFA's `utcut1`
+"""
+function UTC2UT1(JD::Vector{Float64}; type::Symbol=:MJD)
+    JDTAI = UTC2TAI(JD; type=type)
+    return TAI2UT1(JDTAI)
+end
+
+"""
+    JD_UT1 = TAI2UT1(JD_TAI)
+
+Convert a TAI Julian Date into UT1.
+
+The values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` specifying the full Julian Date, and `:MJD` (default)
+specifying Modified Julian Date.
+
+Derived from SOFA's `taiut1`
+"""
+function TAI2UT1(JD::Vector{Float64}; type::Symbol=:MJD)
+    if type == :MJD
+        ΔAT = DAT(JD)
+    else
+        ΔAT = DAT([JD[1] + JM0, JD[2]])
+    end
+    Δut1 = dut1(JD; type=type)
+    dta = Δut1 - ΔAT
+    return [JD[1], JD[2] + dta / 86400.0]
+end
+
+"""
+    JD_TAI = UT12TAI(JD_UT1)
+
+Convert a UT1 Julian Date into TAI.
+
+The values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` specifying the full Julian Date, and `:MJD` (default)
+specifying Modified Julian Date.
+
+Derived from SOFA's `ut1tai`
+"""
+function UT12TAI(JD::Vector{Float64}; type::Symbol=:MJD)
+    JD_UTC = UT12UTC(JD, type=type)
+    return UTC2TAI(JD_UTC, type=type)
+end
+
+"""
+    JD_TT = UT12TT(JD_UT1)
+
+Convert a UT1 Julian Date into TT.
+
+The values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` specifying the full Julian Date, and `:MJD` (default)
+specifying Modified Julian Date.
+
+Derived from SOFA's `ut1tt`
+"""
+function UT12TT(JD::Vector{Float64}; type::Symbol=:MJD)
+    JD_TAI = UT12TAI(JD, type=type)
+    JD_TAI[2] += TTMTAI / 86400.0
+    return JD_TAI
+end
+
+"""
+    JD_UT1 = TT2UT1(JD_TT)
+
+Convert a TT Julian Date into UT1.
+
+The values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` specifying the full Julian Date, and `:MJD` (default)
+specifying Modified Julian Date.
+
+Derived from SOFA's `ttut1`
+"""
+function TT2UT1(JD::Vector{Float64}; type::Symbol=:MJD)
+    JD_TAI = TT2TAI(JD)
+    return TAI2UT1(JD_TAI; type=type)
+end
+
+"""
+    JD_TDB = TT2TDB(JD_TT)
+
+Convert a TT Julian Date into TDB.
+
+The values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` (default) specifying the full Julian Date, and `:MJD`
+specifying Modified Julian Date.
+
+Derived from SOFA's `tttdb` and 2012 Astronomical Almanac (via Vallado)
+"""
+function TT2TDB(JD::Vector{Float64}; type::Symbol=:JD)
+    JD_TDB = copy(JD)
+
+    Δλ = 246.11 + 0.90251792 * (JD_TDB[1] - 2451545.0 + JD_TDB[2])
+    Δλ *= pi / 180
+    if type == :MJD
+        T = JulianCentury([JD_TDB[1] + JM0, JD_TDB[2]])
+    else
+        T = JulianCentury(JD_TDB)
+    end
+    Mearth = 357.5277233 + 35999.05034 * T
+    Mearth *= pi / 180
+
+    delta = 0.001657 * sin(Mearth) + 0.000022 * sin(Δλ)
+    delta /= 86400.0
+
+    JD_TDB[2] += delta
+    return JD_TDB
+end
+
+# Requires the full JD, not modified
+function JulianCentury(JD::Vector{Float64})
+    return (JD[1] - 2451545.0 + JD[2]) / 36525
 end

@@ -9,7 +9,11 @@ using DataFrames, JLD2, FileIO
 export dateVec2JDate, JDate2dateVec
 export fixDateVec, fixDateVec!
 export DAT, DATdateVec
-export UTC2TAI, TT2TAI
+export UTC2TAI, TT2TAI, TAI2UT1
+export UT12UTC, UTC2UT1
+export UT12TAI, UT12TT
+export TT2UT1, TT2TDB
+export JulianCentury
 #export dut1 # only use for debugging
 # Include constituent files
 include("Constants.jl")
