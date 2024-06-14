@@ -14,7 +14,7 @@ export UT12UTC, UTC2UT1
 export UT12TAI, UT12TT
 export TT2UT1, TT2TDB
 export JulianCentury
-#export dut1 # only use for debugging
+# export dut1, EOP, JM0 # only use for debugging
 # Include constituent files
 include("Constants.jl")
 include("Timing.jl")

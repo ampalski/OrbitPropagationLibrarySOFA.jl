@@ -10,6 +10,8 @@ Convert a date vector into Julian Date and Modified Julian Date.
 A date vector is a length 6 vector of floats with
 [year, month, day, hour, minute, seconds]
 
+The `isUTC` optional input checks for UTC handling of leap seconds.
+
 The return values are Julian Date returned in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
 available as a single number by adding the two components of the vector.
@@ -17,9 +19,9 @@ available as a single number by adding the two components of the vector.
 Specifically, Julian Date contains the full number of days in JD[1] and the day
 fraction in JD[2].
 
-Derived from SOFA's `cal2jd`
+Derived from SOFA's `cal2jd` and `dtf2d`
 """
-function dateVec2JDate(dateVec::Vector{Float64})
+function dateVec2JDate(dateVec::Vector{Float64}; isUTC::Bool=false)
     if dateVec[1] < -4799
         error("Year field out of bounds")
     elseif dateVec[2] < 1 || dateVec[2] > 12
@@ -40,7 +42,26 @@ function dateVec2JDate(dateVec::Vector{Float64})
         trunc(1461 * (ypmy + 4800) / 4) + trunc(367 * (dateVec[2] - 2 - 12 * my) / 12) -
         trunc(3 * ((ypmy + 4900) / 100) / 4) + dateVec[3] - 2432076
     jd = mjd + JM0
-    frac = dateVec[4] / 24.0 + dateVec[5] / 1440.0 + dateVec[6] / 86400.0
+
+    # Handle UTC values
+    DAYSEC = 86400.0
+    seclim = 60.0
+    if isUTC
+        m = [mjd, 0.0]
+        dat0 = DAT(m)
+        m[2] = 0.5
+        dat12 = DAT(m)
+        m = [mjd + 1, 0.0]
+        dat24 = DAT(m)
+        dleap = dat24 - (2.0 * dat12 - dat0)
+        DAYSEC += dleap
+        if dateVec[4] == 23 && dateVec[5] == 59
+            seclim += dleap
+        end
+    end
+    frac = (60.0 * (60 * dateVec[4] + dateVec[5]) + dateVec[6]) / DAYSEC
+
+    # frac = dateVec[4] / 24.0 + dateVec[5] / 1440.0 + dateVec[6] / 86400.0
     return ([jd, frac], [mjd, frac])
 end
 #TODO: Add a test for this.
@@ -63,9 +84,9 @@ A date vector is a length 6 vector of floats with
 
 Combines SOFA's `jd2cal` and Vallado (v5) Algorithm 22, Vallado for yr, month,
 and day (SOFA was giving me day issues), and SOFA for hr, min, sec to preserve
-seconds precision.
+seconds precision. Also utilized `d2dtf` from SOFA to handle UTC values
 """
-function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD)
+function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD, isUTC::Bool=false)
 
     mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     # Convert to full JD if MJD
@@ -149,10 +170,48 @@ function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD)
             f = max(f, 0.0)
         end
     end
+
+    leap = false
+    if isUTC
+        temp = [yr, month, day, 0.0, 0.0, 0]
+        _, m = dateVec2JDate(temp, isUTC=isUTC)
+        dat0 = DAT(m)
+        m[2] = 0.5
+        dat12 = DAT(m)
+        m[1] += 1
+        m[2] = 0.0
+        dat24 = DAT(m)
+        dleap = dat24 - (2.0 * dat12 - dat0)
+        leap = abs(dleap) > 0.5
+        if leap
+            f += dleap / 86400.0
+        end
+    end
+
+    # Provisional time of day
     τ = (f) * 24
     hr = trunc(τ)
     min = trunc((τ - hr) * 60)
     sec = (τ - hr - min / 60) * 3600
+    if hr > 23
+
+        if leap
+            if sec > 0
+                day += 1
+                hr = 0.0
+                min = 0.0
+                sec = 0.0
+                return fixDateVec([yr, month, day, hr, min, sec])
+            else
+                hr = 23.0
+                min = 59.0
+                sec = 60.0 + (sec - trunc(sec))
+                #TODO: Need to test this more thoroughly... seems strange
+            end
+        else
+            return fixDateVec([yr, month, day, hr, min, sec])
+        end
+    end
     return [yr, month, day, hr, min, sec]
 end
 # This is the SOFA version, which currently gives incorrect day values.
@@ -486,7 +545,7 @@ Derived from SOFA's `utcut1`
 """
 function UTC2UT1(JD::Vector{Float64}; type::Symbol=:MJD)
     JDTAI = UTC2TAI(JD; type=type)
-    return TAI2UT1(JDTAI)
+    return TAI2UT1(JDTAI; type=type)
 end
 
 """
@@ -511,7 +570,7 @@ function TAI2UT1(JD::Vector{Float64}; type::Symbol=:MJD)
     if type == :MJD
         ΔAT = DAT(JD)
     else
-        ΔAT = DAT([JD[1] + JM0, JD[2]])
+        ΔAT = DAT([JD[1] - JM0, JD[2]])
     end
     Δut1 = dut1(JD; type=type)
     dta = Δut1 - ΔAT
