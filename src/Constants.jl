@@ -29,8 +29,7 @@ Return the ΔAT value for the given MJD.
 The input MJD values are Modified Julian Date returned in two pieces, in the
 usual SOFA manner, which is designed to preserve time resolution. The full 
 Julian Date is available as a single number by adding the two components of the
-vector. For example, [2024., 5, 32, 0, 0, 0] will be adjusted to 
-[2024., 6, 1, 0, 0, 0]
+vector. 
 
 Requires an update with every new leap second.
 
@@ -152,12 +151,13 @@ The use of the full Julian Date or Modified Julian date is specified by the
 specifying Modified Julian Date.
 """
 function dut1(MJD::Vector{Float64}; type::Symbol=:MJD)
+    useJD = copy(MJD)
     if type != :MJD
-        MJD[1] -= JM0
+        useJD[1] -= JM0
     end
 
     firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(MJD[1] + MJD[2])) - firstDate
+    date = Int(floor(useJD[1] + useJD[2])) - firstDate
 
     return EOP[date, :dUT1]
 end
