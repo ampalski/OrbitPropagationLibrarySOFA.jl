@@ -687,5 +687,91 @@ end
 
 # Requires the full JD, not modified
 function JulianCentury(JD::Vector{Float64})
-    return (JD[1] - 2451545.0 + JD[2]) / 36525
+    return (JD[1] - J00 + JD[2]) / 36525
 end
+
+"""
+    gmst = GMST(JD_UT1)
+
+Convert a UT1 Julian Date into the GMST at that epoch.
+
+The input values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` (default) specifying the full Julian Date, and `:MJD`
+specifying Modified Julian Date.
+
+The Greenwich Mean Sidereal Time is an angle describing the mean rotation of
+the Prime Meridian from the vernal equinox. There are several implementations,
+which can be selected by the `model` input, 1982 (`:82`, default), 2000 (`:00`)
+or 2006(`:06`).
+
+Derived from SOFA's `gmst82`, `gmst00`, and `gmst06`
+"""
+function GMST(JD::Vector{Float64}; type::Symbol=:JD, model::Symbol=:82)
+    useJD = copy(JD)
+    if type != :JD
+        useJD[1] += JM0
+    end
+
+    if model == :82
+        return _gmst82(useJD)
+    end
+    JDtt = UT12TT(useJD, type=:JD)
+    if model == :00
+        return _gmst00(useJD, JDtt)
+    else
+        return _gmst06(useJD, JDtt)
+    end
+end
+
+function _gmst82(JD::Vector{Float64})
+    A = 24110.54841 - 43200.0
+    B = 8640184.812866
+    C = 0.093104
+    D = -6.2e-6
+
+    t = JulianCentury(JD)
+    f = 86400 * (JD[1] % 1.0 + JD[2] % 1.0)
+
+    return wrapTo2pi(S2R * ((A + (B + (C + D * t) * t) * t) + f))
+end
+function _gmst00(JD::Vector{Float64}, JDtt::Vector{Float64})
+    t = JulianCentury(JDtt)
+    era = _ERA00(JD)
+    return wrapTo2pi(era +
+                     (0.014506 +
+                      (4612.15739966 +
+                       (1.39667721 -
+                        (0.00009344 +
+                         (0.00001882) * t) * t) * t) * t) * AS2R)
+end
+function _gmst06(JD::Vector{Float64}, JDtt::Vector{Float64})
+    t = JulianCentury(JDtt)
+    era = _ERA00(JD)
+    return wrapTo2pi(era +
+                     (0.014506 +
+                      (4612.156534 +
+                       (1.3915817 -
+                        (0.00000044 -
+                         (0.000029956 -
+                          (0.0000000368) * t) * t) * t) * t) * t) * AS2R)
+end
+
+function _ERA00(JD::Vector{Float64})
+    t = JD[2] + (JD[1] - 2451545.0)
+
+    f = JD[1] % 1.0 + JD[2] % 1.0
+
+    theta = wrapTo2pi(2 * pi * (f + 0.7790572732640 + 0.00273781191135448 * t))
+
+    return theta
+end
+
+
+

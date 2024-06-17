@@ -11,6 +11,7 @@ const WGS72 = 3
 
 const R2AS = 206264.8062470963551564734
 const AS2R = 4.848136811095359935899141e-6
+const S2R = 7.272205216643039903848712e-5 #seconds to radians
 
 const J00 = 2451545.0
 const JM0 = 2400000.5
@@ -103,7 +104,7 @@ function DAT(MJD::Vector{Float64})
         error("Pre-UTC year")
     end
 
-    index = findlast(MJDbase .> @view changes[:, 1])
+    index = findlast(MJDbase .>= @view changes[:, 1])
 
     if isnothing(index)
         error("Underflow, no data available")

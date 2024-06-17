@@ -37,4 +37,30 @@ end
     @test isapprox(jut1[2], 0.8921045609398149, atol=1e-12)
     # Slightly different than t_sofa_c to account for more precise Δut1 term
 
+    #TT2TAI
+    jtt = [2453750.5, 0.892482639]
+    jtai = TT2TAI(jtt)
+    @test jtai[1] == 2453750.5
+    @test isapprox(jtai[2], 0.892110139, atol=1e-12)
+
+    #UT12UTC
+    jut1 = [2453750.5, 0.892104561]
+    jutc = UT12UTC(jut1, type=:JD)
+    @test jutc[1] == 2453750.5
+    @test isapprox(jutc[2], 0.8921006940601852, atol=1e-12)
+    # Slightly different than t_sofa_c to account for more precise Δut1 term
+
+    #TAI2UT1
+    jtai = [2453750.5, 0.892482639]
+    jut1 = TAI2UT1(jtai, type=:JD)
+    @test jut1[1] == 2453750.5
+    @test isapprox(jut1[2], 0.8921045614953704, atol=1e-12)
+    # Slightly different than t_sofa_c to account for more precise Δut1 term
+
+    #UT12TT
+    jut1 = [2453750.5, 0.892104561]
+    jtt = UT12TT(jut1, type=:JD)
+    @test jtt[1] == 2453750.5
+    @test isapprox(jtt[2], 0.8928551385046295, atol=1e-12)
+
 end

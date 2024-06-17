@@ -12,3 +12,17 @@
     @test MJD2[1] == 51179.0
 
 end
+
+@testset "JDATE SOFA" begin
+    date1 = [1994.0, 6, 30, 23, 59, 60.13599]
+    date2 = [2003.0, 6, 1, 0, 0, 0]
+    JD, MJD = dateVec2JDate(date1, isUTC=true)
+    JD2, MJD2 = dateVec2JDate(date2)
+
+    @test isapprox(sum(JD), 2449534.49999, atol=1e-6)
+    @test MJD2[1] == 52791.0
+    @test MJD2[2] == 0
+end
+
+
+
