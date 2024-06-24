@@ -3,7 +3,7 @@
 # provided by and/or endorsed by SOFA.
 
 """
-    obl = OBL(JD_TT, model=:80)
+    obl = OBL(JD_TT, model=80)
 
 Convert a TT Julian Date into the Mean Obliquity of the Ecliptic
 
@@ -19,13 +19,13 @@ selected by the `model` input, 1980 (`:80`, default), or 2006 (`:06`)
 
 Derived from SOFA's `obl80` and `obl06`
 """
-function OBL(JD::Vector{Float64}; type::Symbol=:JD, model::Symbol=:80)
+function OBL(JD::Vector{Float64}; type::Symbol=:JD, model::Integer=80)
     useJD = copy(JD)
     if type != :JD
         useJD[1] += JM0
     end
 
-    if model == :80
+    if model == 80
         return _obl80(useJD)
     else
         return _obl06(useJD)
@@ -196,8 +196,58 @@ function NutationTerms(
         -1.0 -1.0 0.0 2.0 1.0 1.0 0.0 0.0 0.0;
         0.0 1.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0
     ]
-    t = JulianCentury(JD)
+    t = JulianCentury(useJD)
 
+    # Fundamental Arguments
 
+    # Mean longitude of Moon minus mean longitude of Moon's perigee
+    el = wrapToPi((485866.733 +
+                   (715922.633 +
+                    (31.310 + 0.064 * t) * t) * t) * AS2R +
+                  ((1325 * t) % 1.0) * 2 * pi)
+
+    # Mean longitude of Sun minus mean longitude of Sun's perigee
+    elp = wrapToPi((1287099.804 +
+                    (1292581.224 +
+                     (-0.577 - 0.012 * t) * t) * t) * AS2R +
+                   ((99.0 * t) % 1.0) * 2 * pi)
+
+    # Mean longitude of Moon minus mean longitude of Moon's node
+    f = wrapToPi((335778.877 +
+                  (295263.137 +
+                   (-13.257 + 0.011 * t) * t) * t) * AS2R +
+                 ((1342.0 * t) % 1.0) * 2 * pi)
+
+    # Mean elongation of Moon from Sun
+    d = wrapToPi((1072261.307 +
+                  (1105601.328 +
+                   (-6.891 + 0.019 * t) * t) * t) * AS2R +
+                 ((1236.0 * t) % 1.0) * 2 * pi)
+
+    # Longitude of the mean ascending node of the lunar orbit on the ecliptic,
+    # measured from the mean equinox of date
+    om = _lunarLAN(useJD)
+
+    # Nutation series
+    dp = 0.0
+    de = 0.0
+
+    for ii in numTerms:-1:1
+        arg = nutTerms[ii, 1] * el +
+              nutTerms[ii, 2] * elp +
+              nutTerms[ii, 3] * f +
+              nutTerms[ii, 4] * d +
+              nutTerms[ii, 5] * om
+
+        s = nutTerms[ii, 6] + nutTerms[ii, 7] * t
+        c = nutTerms[ii, 8] + nutTerms[ii, 9] * t
+        s != 0 && (dp += s * sin(arg))
+        c != 0 && (de += c * cos(arg))
+    end
+
+    dpsi = dp * U2R
+    deps = de * U2R
+
+    return (dpsi, deps)
 end
 

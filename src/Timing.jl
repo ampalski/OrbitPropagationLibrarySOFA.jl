@@ -708,22 +708,22 @@ specifying Modified Julian Date.
 
 The Greenwich Mean Sidereal Time is an angle describing the mean rotation of
 the Prime Meridian from the vernal equinox. There are several implementations,
-which can be selected by the `model` input, 1982 (`:82`, default), 2000 (`:00`)
-or 2006(`:06`).
+which can be selected by the `model` input, 1982 (`82`, default), 2000 (`00`)
+or 2006(`06`).
 
 Derived from SOFA's `gmst82`, `gmst00`, and `gmst06`
 """
-function GMST(JD::Vector{Float64}; type::Symbol=:JD, model::Symbol=:82)
+function GMST(JD::Vector{Float64}; type::Symbol=:JD, model::Integer=82)
     useJD = copy(JD)
     if type != :JD
         useJD[1] += JM0
     end
 
-    if model == :82
+    if model == 82
         return _gmst82(useJD)
     end
     JDtt = UT12TT(useJD, type=:JD)
-    if model == :00
+    if model == 00
         return _gmst00(useJD, JDtt)
     else
         return _gmst06(useJD, JDtt)
@@ -771,6 +771,75 @@ function _ERA00(JD::Vector{Float64})
     theta = wrapTo2pi(2 * pi * (f + 0.7790572732640 + 0.00273781191135448 * t))
 
     return theta
+end
+
+"""
+    eqeq = eqeq94(JD)
+
+Convert a TT Julian Date into the 1994 Equation of the Equinoxes
+
+The input values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` (default) specifying the full Julian Date, and `:MJD`
+specifying Modified Julian Date.
+
+Derived from SOFA's `eqeq94`
+"""
+function eqeq94(JD::Vector{Float64}; type::Symbol=:JD)
+    useJD = copy(JD)
+    if type != :JD
+        useJD[1] += JM0
+    end
+    om = _lunarLAN(useJD)
+    dψ, _ = NutationTerms(useJD, type=:JD)
+    eps0 = OBL(useJD, type=:JD, model=80)
+    ee = dψ * cos(eps0) + AS2R * (0.00264 * sin(om) + 0.000063 * sin(om + om))
+
+    return ee
+end
+
+
+"""
+    gast = GAST(JD_UT1)
+
+Convert a UT1 Julian Date into the GAST at that epoch.
+
+The input values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` (default) specifying the full Julian Date, and `:MJD`
+specifying Modified Julian Date.
+
+The Greenwich Apparent Sidereal Time is an angle describing the true rotation 
+of the Prime Meridian from the vernal equinox. There are several
+implementations, which can be selected by the `model` input, 1982/1994 (`94`, 
+default), 2000 (`00`) or 2006(`06`).
+
+Derived from SOFA's `gst94`, `gmst00`, and `gmst06`
+"""
+function GAST(JD::Vector{Float64}; type::Symbol=:JD, model::Integer=94)
+    JDUT1 = copy(JD)
+    if type != :JD
+        JDUT1[1] += JM0
+    end
+    JDTT = UT12TT(JDUT1, type=:JD)
+
+    if model == 94
+        gmst = GMST(JDUT1, type=:JD, model=82)
+        eqeq = eqeq94(JDTT, type=:JD)
+        return wrapTo2pi(gmst + eqeq)
+    end
 end
 
 
