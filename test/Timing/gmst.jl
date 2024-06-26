@@ -13,7 +13,8 @@ end
 
     @test isapprox(GMST(j; model=82), 1.754174981860675096; atol=1e-12)
     @test isapprox(GAST(j; model=94), 1.754166136020645203; atol=1e-9)
-    #TODO: figure out if the 1e-9 vs 1e-12 difference for GAST is as simple as
-    #using TT for eqeq instead of UT1
+    # 1e-9 vs 1e-12 difference for GAST is as simple as using TT for eqeq
+    # instead of UT1 ... spec calls for eqeq being calculated with TT, but the
+    # SOFA test uses UT1
 end
 

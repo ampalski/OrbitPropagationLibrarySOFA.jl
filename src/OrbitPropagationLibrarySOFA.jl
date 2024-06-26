@@ -16,7 +16,7 @@ export TT2UT1, TT2TDB
 export JulianCentury
 export GMST, GAST
 # export dut1, EOP, JM0 # only use for debugging
-# export OBL, NutationTerms #use only for debugging
+# export OBL, NutationTerms, eqeq94 #use only for debugging
 # Include constituent files
 include("Utils.jl")
 include("Constants.jl")
