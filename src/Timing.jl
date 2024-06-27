@@ -1,4 +1,4 @@
-# This file uses routines and computations derived by from software provided by
+# This file uses routines and computations derived from software provided by
 # SOFA under license (see the LICENSE); and does not itself constitute software
 # provided by and/or endorsed by SOFA.
 
@@ -64,7 +64,6 @@ function dateVec2JDate(dateVec::Vector{Float64}; isUTC::Bool=false)
     # frac = dateVec[4] / 24.0 + dateVec[5] / 1440.0 + dateVec[6] / 86400.0
     return ([jd, frac], [mjd, frac])
 end
-#TODO: Add a test for this.
 
 """
     dateVec = JDate2dateVec(JD)
@@ -184,7 +183,7 @@ function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD, isUTC::Bool=false)
         dleap = dat24 - (2.0 * dat12 - dat0)
         leap = abs(dleap) > 0.5
         if leap
-            f += dleap / 86400.0
+            f += f * dleap / 86400.0
         end
     end
 
@@ -196,17 +195,16 @@ function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD, isUTC::Bool=false)
     if hr > 23
 
         if leap
-            if sec > 0
+            if sec >= 1 #past the leap second, go to the next day
                 day += 1
                 hr = 0.0
                 min = 0.0
-                sec = 0.0
+                sec = 0.0 + (sec - trunc(sec))
                 return fixDateVec([yr, month, day, hr, min, sec])
             else
                 hr = 23.0
                 min = 59.0
                 sec = 60.0 + (sec - trunc(sec))
-                #TODO: Need to test this more thoroughly... seems strange
             end
         else
             return fixDateVec([yr, month, day, hr, min, sec])
@@ -342,9 +340,10 @@ function fixDateVec!(dateVec::Vector{Float64})
         dateVec[2] -= temp * 12.0
     end
 
-    dayOfYear = sum(mtab[1:(Int(dateVec[2])-1)]) + dateVec[3]
     yr = dateVec[1]
     leapYear(x) = x % 4 == 0 && (x % 100 != 0 || x % 400 == 0)
+    mtab[2] += leapYear(yr)
+    dayOfYear = sum(mtab[1:(Int(dateVec[2])-1)]) + dateVec[3]
 
     while dayOfYear < 1
         yr -= 1
@@ -365,8 +364,6 @@ function fixDateVec!(dateVec::Vector{Float64})
         days = leapYear(yr) ? 366.0 : 365.0
     end
 
-    mtab[2] += leapYear(yr)
-
     dateVec[1] = yr
     i = 1
     while dayOfYear > mtab[i]
@@ -376,7 +373,6 @@ function fixDateVec!(dateVec::Vector{Float64})
     dateVec[2] = i
     dateVec[3] = dayOfYear
 end
-#TODO: test out additional use cases to make sure this is consistent.
 
 """
     JD_TAI = UTC2TAI(JD_UTC)
