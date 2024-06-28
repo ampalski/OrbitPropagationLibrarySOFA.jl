@@ -1,4 +1,4 @@
-# This file uses routines and computations derived by from software provided by
+# This file uses routines and computations derived from software provided by
 # SOFA under license (see the LICENSE); and does not itself constitute software
 # provided by and/or endorsed by SOFA.
 
@@ -64,7 +64,6 @@ function dateVec2JDate(dateVec::Vector{Float64}; isUTC::Bool=false)
     # frac = dateVec[4] / 24.0 + dateVec[5] / 1440.0 + dateVec[6] / 86400.0
     return ([jd, frac], [mjd, frac])
 end
-#TODO: Add a test for this.
 
 """
     dateVec = JDate2dateVec(JD)
@@ -184,7 +183,7 @@ function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD, isUTC::Bool=false)
         dleap = dat24 - (2.0 * dat12 - dat0)
         leap = abs(dleap) > 0.5
         if leap
-            f += dleap / 86400.0
+            f += f * dleap / 86400.0
         end
     end
 
@@ -196,17 +195,16 @@ function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD, isUTC::Bool=false)
     if hr > 23
 
         if leap
-            if sec > 0
+            if sec >= 1 #past the leap second, go to the next day
                 day += 1
                 hr = 0.0
                 min = 0.0
-                sec = 0.0
+                sec = 0.0 + (sec - trunc(sec))
                 return fixDateVec([yr, month, day, hr, min, sec])
             else
                 hr = 23.0
                 min = 59.0
                 sec = 60.0 + (sec - trunc(sec))
-                #TODO: Need to test this more thoroughly... seems strange
             end
         else
             return fixDateVec([yr, month, day, hr, min, sec])
@@ -342,9 +340,10 @@ function fixDateVec!(dateVec::Vector{Float64})
         dateVec[2] -= temp * 12.0
     end
 
-    dayOfYear = sum(mtab[1:(Int(dateVec[2])-1)]) + dateVec[3]
     yr = dateVec[1]
     leapYear(x) = x % 4 == 0 && (x % 100 != 0 || x % 400 == 0)
+    mtab[2] += leapYear(yr)
+    dayOfYear = sum(mtab[1:(Int(dateVec[2])-1)]) + dateVec[3]
 
     while dayOfYear < 1
         yr -= 1
@@ -365,8 +364,6 @@ function fixDateVec!(dateVec::Vector{Float64})
         days = leapYear(yr) ? 366.0 : 365.0
     end
 
-    mtab[2] += leapYear(yr)
-
     dateVec[1] = yr
     i = 1
     while dayOfYear > mtab[i]
@@ -376,7 +373,6 @@ function fixDateVec!(dateVec::Vector{Float64})
     dateVec[2] = i
     dateVec[3] = dayOfYear
 end
-#TODO: test out additional use cases to make sure this is consistent.
 
 """
     JD_TAI = UTC2TAI(JD_UTC)
@@ -708,22 +704,22 @@ specifying Modified Julian Date.
 
 The Greenwich Mean Sidereal Time is an angle describing the mean rotation of
 the Prime Meridian from the vernal equinox. There are several implementations,
-which can be selected by the `model` input, 1982 (`:82`, default), 2000 (`:00`)
-or 2006(`:06`).
+which can be selected by the `model` input, 1982 (`82`, default), 2000 (`00`)
+or 2006(`06`).
 
 Derived from SOFA's `gmst82`, `gmst00`, and `gmst06`
 """
-function GMST(JD::Vector{Float64}; type::Symbol=:JD, model::Symbol=:82)
+function GMST(JD::Vector{Float64}; type::Symbol=:JD, model::Integer=82)
     useJD = copy(JD)
     if type != :JD
         useJD[1] += JM0
     end
 
-    if model == :82
+    if model == 82
         return _gmst82(useJD)
     end
     JDtt = UT12TT(useJD, type=:JD)
-    if model == :00
+    if model == 00
         return _gmst00(useJD, JDtt)
     else
         return _gmst06(useJD, JDtt)
@@ -771,6 +767,75 @@ function _ERA00(JD::Vector{Float64})
     theta = wrapTo2pi(2 * pi * (f + 0.7790572732640 + 0.00273781191135448 * t))
 
     return theta
+end
+
+"""
+    eqeq = eqeq94(JD)
+
+Convert a TT Julian Date into the 1994 Equation of the Equinoxes
+
+The input values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` (default) specifying the full Julian Date, and `:MJD`
+specifying Modified Julian Date.
+
+Derived from SOFA's `eqeq94`
+"""
+function eqeq94(JD::Vector{Float64}; type::Symbol=:JD)
+    useJD = copy(JD)
+    if type != :JD
+        useJD[1] += JM0
+    end
+    om = _lunarLAN(useJD)
+    dψ, _ = NutationTerms(useJD, type=:JD)
+    eps0 = OBL(useJD, type=:JD, model=80)
+    ee = dψ * cos(eps0) + AS2R * (0.00264 * sin(om) + 0.000063 * sin(om + om))
+
+    return ee
+end
+
+
+"""
+    gast = GAST(JD_UT1)
+
+Convert a UT1 Julian Date into the GAST at that epoch.
+
+The input values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2].
+
+The use of the full Julian Date or Modified Julian date is specified by the
+`type` option, with `:JD` (default) specifying the full Julian Date, and `:MJD`
+specifying Modified Julian Date.
+
+The Greenwich Apparent Sidereal Time is an angle describing the true rotation 
+of the Prime Meridian from the vernal equinox. There are several
+implementations, which can be selected by the `model` input, 1982/1994 (`94`, 
+default), 2000 (`00`) or 2006(`06`).
+
+Derived from SOFA's `gst94`, `gmst00`, and `gmst06`
+"""
+function GAST(JD::Vector{Float64}; type::Symbol=:JD, model::Integer=94)
+    JDUT1 = copy(JD)
+    if type != :JD
+        JDUT1[1] += JM0
+    end
+    JDTT = UT12TT(JDUT1, type=:JD)
+
+    if model == 94
+        gmst = GMST(JDUT1, type=:JD, model=82)
+        eqeq = eqeq94(JDTT, type=:JD)
+        return wrapTo2pi(gmst + eqeq)
+    end
 end
 
 

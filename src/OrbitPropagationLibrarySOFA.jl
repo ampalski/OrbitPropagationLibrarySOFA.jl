@@ -1,4 +1,4 @@
-# This file uses routines and computations derived by from software provided by
+# This file uses routines and computations derived from software provided by
 # SOFA under license (see the LICENSE); and does not itself constitute software
 # provided by and/or endorsed by SOFA.
 
@@ -14,9 +14,9 @@ export UT12UTC, UTC2UT1
 export UT12TAI, UT12TT
 export TT2UT1, TT2TDB
 export JulianCentury
-export GMST
+export GMST, GAST
 # export dut1, EOP, JM0 # only use for debugging
-# export OBL #use only for debugging
+# export OBL, NutationTerms, eqeq94 #use only for debugging
 # Include constituent files
 include("Utils.jl")
 include("Constants.jl")
