@@ -3,7 +3,7 @@
 # provided by and/or endorsed by SOFA.
 
 """
-    obl = OBL(JD_TT, model=80)
+    obl = OBL(JD_TT, type::Symbol=:JD, model::Integer=80)
 
 Convert a TT Julian Date into the Mean Obliquity of the Ecliptic
 
@@ -59,7 +59,7 @@ end
 
 
 """
-    dψ, dϵ = NutationTerms(JD)
+    dψ, dϵ = NutationTerms(JD; type::Symbol=:JD, numTerms::Integer=106)
 
 Convert a TT Julian Date into the nutation terms from the 1980 model.
 
@@ -251,3 +251,363 @@ function NutationTerms(
     return (dpsi, deps)
 end
 
+"""
+    ζ, z, θ = PrecessionTerms(JD; type::Symbol=:JD, JD0=[J00, 0.0])
+
+Convert a TT Julian Date into the precession terms from the 1976 model.
+
+The input values are Julian Date returned in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Specifically, Julian Date contains the full number of days in JD[1] and the day
+fraction in JD[2]. 
+
+The `JD0` optional input value specifies the start epoch of the rotation, 
+typically set to the J2000 epoch.
+
+Derived from SOFA's `prec76`
+"""
+function PrecessionTerms(
+    JD::Vector{Float64};
+    type::Symbol=:JD,
+    JD0::Vector{Float64}=[J00, 0.0],
+)
+    # Interval between the fundamental epoch J2000 and the start date.
+    t0 = JulianCentury(JD0)
+
+    # Interval over which precession required
+    t = ((JD[1] - JD0[1]) + (JD[2] - JD0[2])) / 36525.0
+
+    # Euler Angles
+    tas2r = t * AS2R
+    w = 2306.2181 + (1.39656 - 0.000139 * t0) * t0
+    ζ = (w + ((0.30188 - 0.000344 * t0) + 0.017998 * t) * t) * tas2r
+    z = (w + ((1.09468 + 0.000066 * t0) + 0.018203 * t) * t) * tas2r
+    θ = ((2004.3109 + (-0.8533 - 0.000217 * t0) * t0) +
+         ((-0.42665 - 0.000217 * t0) - 0.041833 * t) * t) * tas2r
+
+    return (ζ, z, θ)
+end
+"""
+    rotMatrix = ITRF2PEF76_matrix(JD)
+
+Find the ITRF to PEF rotation matrix for a given Julian Date using the IAU-76
+model.
+
+The input values are Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Used to transform an ITRF vector into PEF as `r_PEF = rotMatrix * r_ITRF`
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function ITRF2PEF76_matrix(JD::Vector{Float64})
+    useJD = [JD[1] - JM0, JD[2]]
+    firstDate = EOP[1, :MJD] - 1
+    date = Int(floor(useJD[1] + useJD[2])) - firstDate
+
+    xp = EOP[date, :xp] * AS2R
+    yp = EOP[date, :yp] * AS2R
+    cx = cos(xp)
+    sx = sin(xp)
+    cy = cos(yp)
+    sy = sin(yp)
+    W = zeros(3, 3)
+    W[1, 1] = cx
+    W[1, 3] = -sx
+
+    W[2, 1] = sx * sy
+    W[2, 2] = cy
+    W[2, 3] = cx * sy
+
+    W[3, 1] = sx * cy
+    W[3, 2] = -sy
+    W[3, 3] = cx * cy
+
+    # W[1, 1] = 1.0 # approximation version
+    # W[2, 2] = 1.0
+    # W[3, 3] = 1.0
+    #
+    # W[1, 3] = -xp
+    # W[2, 3] = yp
+    # W[3, 1] = xp
+    # W[3, 2] = -yp
+
+    return W
+end
+
+"""
+    r_PEF = ITRF2PEF76(r_ITRF, JD)
+
+Transform an ITRF vector into PEF at the given Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function ITRF2PEF76(vec::Vector{Float64}, JD::Vector{Float64})
+    W = ITRF2PEF76_matrix(JD)
+    return W * vec
+end
+
+"""
+    r_PEF = PEF2ITRF76(r_ITRF, JD)
+
+Transform a PEF vector into ITRF at the given Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function PEF2ITRF76(vec::Vector{Float64}, JD::Vector{Float64})
+    W = ITRF2PEF76_matrix(JD)
+    return W' * vec
+end
+
+"""
+    rotMatrix = PEF2TOD76_matrix(JD)
+
+Find the PEF to TOD rotation matrix for a given UT1 Julian Date using the
+IAU-76 model.
+
+The input values are Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Used to transform a PEF vector into TOD as `r_TOD = rotMatrix * r_PEF`
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function PEF2TOD76_matrix(JD::Vector{Float64})
+    gast = GAST(JD, type=:JD, model=94)
+    R = R3(-gast)
+    return R
+end
+
+"""
+    r_TOD = PEF2TOD76(r_PEF, JD)
+
+Transform a PEF vector into TOD at the given Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function PEF2TOD76(vec::Vector{Float64}, JD::Vector{Float64})
+    R = PEF2TOD76_matrix(JD)
+    return R * vec
+end
+
+"""
+    r_PEF = TOD2PEF76(r_TOD, JD)
+
+Transform a TOD vector into PEF at the given Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function TOD2PEF76(vec::Vector{Float64}, JD::Vector{Float64})
+    R = PEF2TOD76_matrix(JD)
+    return R' * vec
+end
+
+"""
+    v_TOD = PEF2TOD76_vel(v_PEF, r_PEF JD)
+
+Transform a PEF velocity vector into TOD at the given Julian Date using the
+IAU-76 model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function PEF2TOD76_vel(
+    vec::Vector{Float64},
+    pos::Vector{Float64},
+    JD::Vector{Float64},
+)
+    R = PEF2TOD76_matrix(JD)
+    useJD = [JD[1] - JM0, JD[2]]
+    firstDate = EOP[1, :MJD] - 1
+    date = Int(floor(useJD[1] + useJD[2])) - firstDate
+
+    LOD = EOP[date, :LOD]
+
+    omega = [0, 0, 7.292115146706979e-5 * (1 - LOD / 86400)]
+    return (R * (vec + cross(omega, pos)))
+end
+
+"""
+    v_PEF = TOD2PEF76_vel(v_TOD, r_PEF, JD)
+
+Transform a TOD velocity vector into PEF at the given Julian Date using the 
+IAU-76 model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the IAU-76 reduction.
+"""
+function TOD2PEF76_vel(
+    vec::Vector{Float64},
+    pos::Vector{Float64},
+    JD::Vector{Float64},
+)
+    R = PEF2TOD76_matrix(JD)
+    useJD = [JD[1] - JM0, JD[2]]
+    firstDate = EOP[1, :MJD] - 1
+    date = Int(floor(useJD[1] + useJD[2])) - firstDate
+
+    LOD = EOP[date, :LOD]
+
+    omega = [0, 0, 7.292115146706979e-5 * (1 - LOD / 86400)]
+
+    return (R' * vec - cross(omega, pos))
+end
+
+"""
+    rotMatrix = TOD2MOD76_matrix(JD)
+
+Find the TOD to MOD rotation matrix for a given TT Julian Date using the IAU-76
+model.
+
+The input values are Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Used to transform a TOD vector into MOD as `r_MOD = rotMatrix * r_TOD`
+
+Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
+"""
+function TOD2MOD76_matrix(JD::Vector{Float64})
+    dψ, dϵ = NutationTerms(JD; type=:JD, numTerms=106)
+    obl = OBL(JD; type=:JD, model=80)
+    N = R1(-obl) * R3(dψ) * R1((obl + dϵ))
+    return N
+end
+
+"""
+    r_MOD = TOD2MOD76(r_TOD, JD)
+
+Transform a TOD vector into MOD at the given TT Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
+"""
+function TOD2MOD76(vec::Vector{Float64}, JD::Vector{Float64})
+    N = TOD2MOD76_matrix(JD)
+    return N * vec
+end
+
+"""
+    r_TOD = MOD2TOD76(r_MOD, JD)
+
+Transform a MOD vector into TOD at the given TT Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
+"""
+function MOD2TOD76(vec::Vector{Float64}, JD::Vector{Float64})
+    N = TOD2MOD76_matrix(JD)
+    return N' * vec
+end
+
+"""
+    rotMatrix = MOD2J200076_matrix(JD)
+
+Find the MOD to J2000 rotation matrix for a given TT Julian Date using the
+IAU-76 model.
+
+The input values are Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Used to transform a MOD vector into J2000 as `r_J2000 = rotMatrix * r_MOD`
+
+Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
+"""
+function MOD2J200076_matrix(JD::Vector{Float64})
+    ζ, z, θ = PrecessionTerms(JD; type=:JD)
+    P = R3(ζ) * R2(-θ) * R3(z)
+    return P
+end
+
+"""
+    r_J2000 = MOD2J200076(r_MOD, JD)
+
+Transform a MOD vector into J2000 at the given TT Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
+"""
+function MOD2J200076(vec::Vector{Float64}, JD::Vector{Float64})
+    P = MOD2J200076_matrix(JD)
+    return P * vec
+end
+
+"""
+    r_MOD = J20002MOD76(r_J2000, JD)
+
+Transform a J2000 vector into MOD at the given TT Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
+"""
+function J20002MOD76(vec::Vector{Float64}, JD::Vector{Float64})
+    P = MOD2J200076_matrix(JD)
+    return P' * vec
+end
