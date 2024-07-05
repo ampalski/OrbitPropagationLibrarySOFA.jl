@@ -522,7 +522,7 @@ function UT12UTC(JD::Vector{Float64}; type::Symbol=:MJD)
 end
 
 """
-    JD_UT1 = UTC2UT1(JD_UTC)
+    JD_UT1 = UTC2UT1(JD_UTC; type=:MJD)
 
 Convert a UTC Julian Date into UT1.
 
