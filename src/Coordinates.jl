@@ -399,7 +399,7 @@ end
 """
     r_TOD = PEF2TOD76(r_PEF, JD)
 
-Transform a PEF vector into TOD at the given Julian Date using the IAU-76 
+Transform a PEF vector into TOD at the given UT1 Julian Date using the IAU-76 
 model.
 
 The state vector must be of length 3.
@@ -418,7 +418,7 @@ end
 """
     r_PEF = TOD2PEF76(r_TOD, JD)
 
-Transform a TOD vector into PEF at the given Julian Date using the IAU-76 
+Transform a TOD vector into PEF at the given UT1 Julian Date using the IAU-76 
 model.
 
 The state vector must be of length 3.

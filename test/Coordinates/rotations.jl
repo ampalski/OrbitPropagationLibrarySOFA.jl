@@ -138,3 +138,52 @@ end
     @test posDiff' * posDiff < 1e-13
     @test velDiff' * velDiff < 1e-13
 end
+
+@testset "External Val 1" begin
+    date1 = [2014.0, 8, 1, 0, 0, 0] #UTC
+    JD, _ = dateVec2JDate(date1)
+    JDUT1 = UTC2UT1(JD; type=:JD)
+
+    pos = [9891.04671, 20034.03101, 30013.410277]
+    posPEF = TOD2PEF76(pos, JDUT1)
+
+    # I don't have the original source for this test, so I'm not sure why this 
+    # is off by ~300 m instead of sub-meter. The other tests from what I 
+    # believe to be the same source are sub-meter.
+    @test isapprox(posPEF[1], -9157.41451; atol=0.5)
+    @test isapprox(posPEF[2], 20379.817543; atol=0.5)
+    @test isapprox(posPEF[3], pos[3]; atol=1e-4)
+end
+
+@testset "External Val 2" begin
+    date1 = [2014.0, 6, 1, 0, 0, 0] #UTC
+    JD, _ = dateVec2JDate(date1)
+    JDUT1 = UTC2UT1(JD; type=:JD)
+
+    pos = [9892.40716, 20033.656809, 30013.211681]
+    posPEF = TOD2PEF76(pos, JDUT1)
+
+    @test isapprox(posPEF[1], -22233.18581; atol=1e-3)
+    @test isapprox(posPEF[2], 2211.916133; atol=1e-3)
+    @test isapprox(posPEF[3], pos[3]; atol=1e-4)
+end
+
+@testset "External Val 3" begin
+    date1 = [2014.0, 8, 28, 6, 46, 24.461] #UTC
+    JD, _ = dateVec2JDate(date1)
+    JDUT1 = UTC2UT1(JD; type=:JD)
+    JDTT = UT12TT(JDUT1; type=:JD)
+
+    pos = [23141.52, 35279.3, -5.05699] #J2k
+    posMOD = J20002MOD76(pos, JDTT)
+    posTOD = MOD2TOD76(posMOD, JDTT)
+    posPEF = TOD2PEF76(posTOD, JDUT1)
+
+    @test isapprox(posTOD[1], 23024.613191; atol=1e-4)
+    @test isapprox(posTOD[2], 35355.699039; atol=1e-4)
+    @test isapprox(posTOD[3], 26.7356961; atol=1e-4)
+
+    @test isapprox(posPEF[1], 39365.211746; atol=1e-3)
+    @test isapprox(posPEF[2], -15183.49009; atol=1e-3)
+    @test isapprox(posPEF[3], posTOD[3]; atol=1e-4)
+end

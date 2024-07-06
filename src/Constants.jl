@@ -3,7 +3,7 @@
 # provided by and/or endorsed by SOFA.
 
 # add to this from sofam.h as needed
-EOP = load("data/EOP.jld2")["EOP"]
+EOP = load("$(dirname(@__DIR__))/data/EOP.jld2")["EOP"]
 
 const WGS84 = 1
 const GRS80 = 2
