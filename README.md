@@ -10,6 +10,21 @@ This package is at minimum viable product, and is intended to be used as the tim
 
 In order to maintain compatibility with the USSF standards, initial implementation focuses on IAU-76 and other pre-2000 models.
 
+## Usage Example
+
+```
+date = [2014.0, 8, 28, 6, 46, 24.461] #UTC
+JD, _ = dateVec2JDate(date)
+JDUT1 = UTC2UT1(JD; type=:JD)
+JDTT = UT12TT(JDUT1; type=:JD)
+
+rJ2000 = [23141.52, 35279.3, -5.05699]
+rMOD = J20002MOD76(r, JDTT)
+rTOD = MOD2TOD76(rMOD, JDTT)
+rPEF = TOD2PEF76(rTOD, JDUT1)
+rITRF = PEF2ITRF76(rPEF, JD)
+```
+
 ## Future Plans
 - Support for TEME
 - Support for GCRF (vice the current J2000)
