@@ -611,3 +611,67 @@ function J20002MOD76(vec::Vector{Float64}, JD::Vector{Float64})
     P = MOD2J200076_matrix(JD)
     return P' * vec
 end
+
+"""
+    rotMatrix = TEME2TOD_matrix(JD)
+
+Find the TEME to TOD rotation matrix for a given TT Julian Date using the
+IAU-76 model.
+
+The input values are Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Used to transform a TEME vector into TOD as `r_TOD = rotMatrix * r_TEME`
+
+Derived from Vallado's description of the TEME frame. Note that TEME is not 
+fully defined publicly, and may carry some errors due to the ambiguous nature 
+of its definition.
+"""
+function TEME2TOD_matrix(JD::Vector{Float64})
+    eqeq = eqeq94(JD)
+    T = R3(-eqeq)
+    return T
+end
+
+"""
+    r_TOD = TEME2TOD(r_TEME, JD)
+
+Transform a TEME vector into TOD at the given TT Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the TEME frame. Note that TEME is not 
+fully defined publicly, and may carry some errors due to the ambiguous nature 
+of its definition.
+"""
+function TEME2TOD(vec::Vector{Float64}, JD::Vector{Float64})
+    T = TEME2TOD_matrix(JD)
+    return T * vec
+end
+
+"""
+    r_TEME = TOD2TEME(r_TOD, JD)
+
+Transform a TOD vector into TEME at the given TT Julian Date using the IAU-76 
+model.
+
+The state vector must be of length 3.
+
+The input Julian Date is given in two pieces, in the usual SOFA
+manner, which is designed to preserve time resolution. The full Julian Date is
+available as a single number by adding the two components of the vector.
+
+Derived from Vallado's description of the TEME frame. Note that TEME is not 
+fully defined publicly, and may carry some errors due to the ambiguous nature 
+of its definition.
+"""
+function TOD2TEME(vec::Vector{Float64}, JD::Vector{Float64})
+    T = TEME2TOD_matrix(JD)
+    return T' * vec
+end
