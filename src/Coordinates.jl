@@ -3,7 +3,7 @@
 # provided by and/or endorsed by SOFA.
 
 """
-    obl = OBL(JD_TT, type::Symbol=:JD, model::Integer=80)
+    OBL = obl(JD_TT; model::Integer=80)
 
 Convert a TT Julian Date into the Mean Obliquity of the Ecliptic
 
@@ -11,19 +11,13 @@ The input values are Julian Date returned in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
 available as a single number by adding the two components of the vector.
 
-Specifically, Julian Date contains the full number of days in JD[1] and the day
-fraction in JD[2]. Requires the full Julian Date (type=:JD).
-
 The Mean Obliquity of the Ecliptic has two implementations,which can be 
 selected by the `model` input, 1980 (`:80`, default), or 2006 (`:06`)
 
 Derived from SOFA's `obl80` and `obl06`
 """
-function OBL(JD::Vector{Float64}; type::Symbol=:JD, model::Integer=80)
-    useJD = copy(JD)
-    if type != :JD
-        useJD[1] += JM0
-    end
+function obl(JD::JulianDate; model::Integer=80)
+    useJD = JD isa JDate ? JD : mjdate_to_jdate(JD)
 
     if model == 80
         return _obl80(useJD)
@@ -32,12 +26,12 @@ function OBL(JD::Vector{Float64}; type::Symbol=:JD, model::Integer=80)
     end
 end
 
-function _obl80(JD::Vector{Float64})
+function _obl80(JD::JDate)
     t = JulianCentury(JD)
 
     return AS2R * (84381.448 + (-46.815 + (-0.00059 + 0.001813 * t) * t) * t)
 end
-function _obl06(JD::Vector{Float64})
+function _obl06(JD::JDate)
     t = JulianCentury(JD)
     eps0 = (84381.406 +
             (-46.836769 +
@@ -49,7 +43,10 @@ function _obl06(JD::Vector{Float64})
 end
 
 #JD must be :JD, not :MJD, and in TT
-function _lunarLAN(JD::Vector{Float64})
+function _lunarLAN(JD::JDate)
+    if JD.system != :TT
+        JD = convert_jd(JD, :TT)
+    end
     t = JulianCentury(JD)
     om = wrapToPi((450160.28 + (-482890.539 +
                                 (7.455 + 0.008 * t) * t) * t) * AS2R +
@@ -59,16 +56,13 @@ end
 
 
 """
-    dψ, dϵ = NutationTerms(JD; type::Symbol=:JD, numTerms::Integer=106)
+    dψ, dϵ = NutationTerms(JD; numTerms::Integer=106)
 
 Convert a TT Julian Date into the nutation terms from the 1980 model.
 
 The input values are Julian Date returned in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
 available as a single number by adding the two components of the vector.
-
-Specifically, Julian Date contains the full number of days in JD[1] and the day
-fraction in JD[2]. 
 
 The `numTerms` optional argument governs how many coefficients are used in the
 summation series. The default 106 is the full definition, consistent with the
@@ -77,15 +71,11 @@ summation series. The default 106 is the full definition, consistent with the
 Derived from SOFA's `nut80`
 """
 function NutationTerms(
-    JD::Vector{Float64};
-    type::Symbol=:JD,
+    JD::JulianDate;
     numTerms::Integer=106,
 )
 
-    useJD = copy(JD)
-    if type != :JD
-        useJD[1] += JM0
-    end
+    useJD = JD isa JDate ? JD : mjdate_to_jdate(JD)
 
     U2R = AS2R / 1e4 # milliarcseconds conversion
     nutTerms = [
@@ -252,7 +242,7 @@ function NutationTerms(
 end
 
 """
-    ζ, z, θ = PrecessionTerms(JD; type::Symbol=:JD, JD0=[J00, 0.0])
+    ζ, z, θ = PrecessionTerms(JD; JD0=JDate(SA[J00, 0.0], :TT))
 
 Convert a TT Julian Date into the precession terms from the 1976 model.
 
@@ -260,24 +250,22 @@ The input values are Julian Date returned in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
 available as a single number by adding the two components of the vector.
 
-Specifically, Julian Date contains the full number of days in JD[1] and the day
-fraction in JD[2]. 
-
 The `JD0` optional input value specifies the start epoch of the rotation, 
 typically set to the J2000 epoch.
 
 Derived from SOFA's `prec76`
 """
 function PrecessionTerms(
-    JD::Vector{Float64};
-    type::Symbol=:JD,
-    JD0::Vector{Float64}=[J00, 0.0],
+    JD::JulianDate;
+    JD0::JDate=JDate(SA[J00, 0.0], :TT),
 )
+    useJD = JD isa JDate ? JD : mjdate_to_jdate(JD)
     # Interval between the fundamental epoch J2000 and the start date.
     t0 = JulianCentury(JD0)
 
     # Interval over which precession required
-    t = ((JD[1] - JD0[1]) + (JD[2] - JD0[2])) / 36525.0
+    t = ((useJD.epoch[1] - JD0.epoch[1]) +
+         (useJD.epoch[2] - JD0.epoch[2])) / 36525.0
 
     # Euler Angles
     tas2r = t * AS2R
@@ -303,10 +291,10 @@ Used to transform an ITRF vector into PEF as `r_PEF = rotMatrix * r_ITRF`
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function ITRF2PEF76_matrix(JD::Vector{Float64})
-    useJD = [JD[1] - JM0, JD[2]]
+function ITRF2PEF76_matrix(JD::JulianDate)
+    useJD = JD isa MJDate ? JD : jdate_to_mjdate(JD)
     firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(useJD[1] + useJD[2])) - firstDate
+    date = Int(floor(useJD.epoch[1] + useJD.epoch[2])) - firstDate
 
     xp = EOP[date, :xp] * AS2R
     yp = EOP[date, :yp] * AS2R
@@ -352,7 +340,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function ITRF2PEF76(vec::Vector{Float64}, JD::Vector{Float64})
+function ITRF2PEF76(vec::Vector{Float64}, JD::JulianDate)
     W = ITRF2PEF76_matrix(JD)
     return W * vec
 end
@@ -371,7 +359,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function PEF2ITRF76(vec::Vector{Float64}, JD::Vector{Float64})
+function PEF2ITRF76(vec::Vector{Float64}, JD::JulianDate)
     W = ITRF2PEF76_matrix(JD)
     return W' * vec
 end
@@ -390,9 +378,9 @@ Used to transform a PEF vector into TOD as `r_TOD = rotMatrix * r_PEF`
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function PEF2TOD76_matrix(JD::Vector{Float64})
-    gast = GAST(JD, type=:JD, model=94)
-    R = R3(-gast)
+function PEF2TOD76_matrix(JD::JulianDate)
+    GAST = gast(JD, model=94)
+    R = R3(-GAST)
     return R
 end
 
@@ -410,7 +398,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function PEF2TOD76(vec::Vector{Float64}, JD::Vector{Float64})
+function PEF2TOD76(vec::Vector{Float64}, JD::JulianDate)
     R = PEF2TOD76_matrix(JD)
     return R * vec
 end
@@ -429,13 +417,13 @@ available as a single number by adding the two components of the vector.
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function TOD2PEF76(vec::Vector{Float64}, JD::Vector{Float64})
+function TOD2PEF76(vec::Vector{Float64}, JD::JulianDate)
     R = PEF2TOD76_matrix(JD)
     return R' * vec
 end
 
 """
-    v_TOD = PEF2TOD76_vel(v_PEF, r_PEF JD)
+    v_TOD = PEF2TOD76_vel(v_PEF, r_PEF, JD)
 
 Transform a PEF velocity vector into TOD at the given Julian Date using the
 IAU-76 model.
@@ -451,12 +439,12 @@ Derived from Vallado's description of the IAU-76 reduction.
 function PEF2TOD76_vel(
     vec::Vector{Float64},
     pos::Vector{Float64},
-    JD::Vector{Float64},
+    JD::JulianDate,
 )
     R = PEF2TOD76_matrix(JD)
-    useJD = [JD[1] - JM0, JD[2]]
+    useJD = JD isa MJDate ? JD : jdate_to_mjdate(JD)
     firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(useJD[1] + useJD[2])) - firstDate
+    date = Int(floor(useJD.epoch[1] + useJD.epoch[2])) - firstDate
 
     LOD = EOP[date, :LOD]
 
@@ -481,12 +469,12 @@ Derived from Vallado's description of the IAU-76 reduction.
 function TOD2PEF76_vel(
     vec::Vector{Float64},
     pos::Vector{Float64},
-    JD::Vector{Float64},
+    JD::JulianDate,
 )
     R = PEF2TOD76_matrix(JD)
-    useJD = [JD[1] - JM0, JD[2]]
+    useJD = JD isa MJDate ? JD : jdate_to_mjdate(JD)
     firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(useJD[1] + useJD[2])) - firstDate
+    date = Int(floor(useJD.epoch[1] + useJD.epoch[2])) - firstDate
 
     LOD = EOP[date, :LOD]
 
@@ -509,10 +497,10 @@ Used to transform a TOD vector into MOD as `r_MOD = rotMatrix * r_TOD`
 
 Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
 """
-function TOD2MOD76_matrix(JD::Vector{Float64})
-    dψ, dϵ = NutationTerms(JD; type=:JD, numTerms=106)
-    obl = OBL(JD; type=:JD, model=80)
-    N = R1(-obl) * R3(dψ) * R1((obl + dϵ))
+function TOD2MOD76_matrix(JD::JulianDate)
+    dψ, dϵ = NutationTerms(JD; numTerms=106)
+    OBL = obl(JD; model=80)
+    N = R1(-OBL) * R3(dψ) * R1((OBL + dϵ))
     return N
 end
 
@@ -530,7 +518,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
 """
-function TOD2MOD76(vec::Vector{Float64}, JD::Vector{Float64})
+function TOD2MOD76(vec::Vector{Float64}, JD::JulianDate)
     N = TOD2MOD76_matrix(JD)
     return N * vec
 end
@@ -549,7 +537,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
 """
-function MOD2TOD76(vec::Vector{Float64}, JD::Vector{Float64})
+function MOD2TOD76(vec::Vector{Float64}, JD::JulianDate)
     N = TOD2MOD76_matrix(JD)
     return N' * vec
 end
@@ -568,8 +556,8 @@ Used to transform a MOD vector into J2000 as `r_J2000 = rotMatrix * r_MOD`
 
 Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
 """
-function MOD2J200076_matrix(JD::Vector{Float64})
-    ζ, z, θ = PrecessionTerms(JD; type=:JD)
+function MOD2J200076_matrix(JD::JulianDate)
+    ζ, z, θ = PrecessionTerms(JD)
     P = R3(ζ) * R2(-θ) * R3(z)
     return P
 end
@@ -588,7 +576,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
 """
-function MOD2J200076(vec::Vector{Float64}, JD::Vector{Float64})
+function MOD2J200076(vec::Vector{Float64}, JD::JulianDate)
     P = MOD2J200076_matrix(JD)
     return P * vec
 end
@@ -607,7 +595,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
 """
-function J20002MOD76(vec::Vector{Float64}, JD::Vector{Float64})
+function J20002MOD76(vec::Vector{Float64}, JD::JulianDate)
     P = MOD2J200076_matrix(JD)
     return P' * vec
 end
@@ -628,7 +616,7 @@ Derived from Vallado's description of the TEME frame. Note that TEME is not
 fully defined publicly, and may carry some errors due to the ambiguous nature 
 of its definition.
 """
-function TEME2TOD_matrix(JD::Vector{Float64})
+function TEME2TOD_matrix(JD::JulianDate)
     eqeq = eqeq94(JD)
     T = R3(-eqeq)
     return T
@@ -650,7 +638,7 @@ Derived from Vallado's description of the TEME frame. Note that TEME is not
 fully defined publicly, and may carry some errors due to the ambiguous nature 
 of its definition.
 """
-function TEME2TOD(vec::Vector{Float64}, JD::Vector{Float64})
+function TEME2TOD(vec::Vector{Float64}, JD::JulianDate)
     T = TEME2TOD_matrix(JD)
     return T * vec
 end
@@ -671,7 +659,7 @@ Derived from Vallado's description of the TEME frame. Note that TEME is not
 fully defined publicly, and may carry some errors due to the ambiguous nature 
 of its definition.
 """
-function TOD2TEME(vec::Vector{Float64}, JD::Vector{Float64})
+function TOD2TEME(vec::Vector{Float64}, JD::JulianDate)
     T = TEME2TOD_matrix(JD)
     return T' * vec
 end
