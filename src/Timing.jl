@@ -3,7 +3,7 @@
 # provided by and/or endorsed by SOFA.
 
 """
-    JD, MJD = dateVec2JDate(dateVec; system::Symbol=:UTC)
+    JD, MJD = datevec2jdate(dateVec; system::Symbol=:UTC)
 
 Convert a date vector into Julian Date and Modified Julian Date.
 
@@ -20,7 +20,7 @@ can be found in `(M)JD.epoch`
 
 Derived from SOFA's `cal2jd` and `dtf2d`
 """
-function dateVec2JDate(dateVec::Vector{Float64}; system::Symbol=:UTC)
+function datevec2jdate(dateVec::Vector{Float64}; system::Symbol=:UTC)
     if dateVec[1] < -4799
         error("Year field out of bounds")
     elseif dateVec[2] < 1 || dateVec[2] > 12
@@ -49,11 +49,11 @@ function dateVec2JDate(dateVec::Vector{Float64}; system::Symbol=:UTC)
     seclim = 60.0
     if system == :UTC
         m = MJDate(SA[mjd, 0.0], :UTC)
-        dat0 = DAT(m)
+        dat0 = dat(m)
         m = MJDate(SA[mjd, 0.5], :UTC)
-        dat12 = DAT(m)
+        dat12 = dat(m)
         m = MJDate(SA[mjd+1, 0.0], :UTC)
-        dat24 = DAT(m)
+        dat24 = dat(m)
         dleap = dat24 - (2.0 * dat12 - dat0)
         DAYSEC += dleap
         if dateVec[4] == 23 && dateVec[5] == 59
@@ -67,7 +67,7 @@ function dateVec2JDate(dateVec::Vector{Float64}; system::Symbol=:UTC)
 end
 
 """
-    dateVec = JDate2dateVec(JD)
+    dateVec = jdate2datevec(JD)
 
 Convert a Julian Date into a date vector
 
@@ -82,7 +82,7 @@ Combines SOFA's `jd2cal` and Vallado (v5) Algorithm 22, Vallado for yr, month,
 and day (SOFA was giving me day issues), and SOFA for hr, min, sec to preserve
 seconds precision. Also utilized `d2dtf` from SOFA to handle UTC values
 """
-function JDate2dateVec(JD::JulianDate)
+function jdate2datevec(JD::JulianDate)
 
     mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     # Convert to full JD if MJD
@@ -168,12 +168,12 @@ function JDate2dateVec(JD::JulianDate)
     leap = false
     if JD.system == :UTC
         temp = [yr, month, day, 0.0, 0.0, 0]
-        _, m = dateVec2JDate(temp, system=:UTC)
-        dat0 = DAT(m)
+        _, m = datevec2jdate(temp, system=:UTC)
+        dat0 = dat(m)
         m = MJDate(SA[m.epoch[1], 0.5], m.system)
-        dat12 = DAT(m)
+        dat12 = dat(m)
         m = MJDate(SA[m.epoch[1]+1, 0.0], m.system)
-        dat24 = DAT(m)
+        dat24 = dat(m)
         dleap = dat24 - (2.0 * dat12 - dat0)
         leap = abs(dleap) > 0.5
         if leap
@@ -194,14 +194,14 @@ function JDate2dateVec(JD::JulianDate)
                 hr = 0.0
                 min = 0.0
                 sec = 0.0 + (sec - trunc(sec))
-                return fixDateVec([yr, month, day, hr, min, sec])
+                return fixdatevec([yr, month, day, hr, min, sec])
             else
                 hr = 23.0
                 min = 59.0
                 sec = 60.0 + (sec - trunc(sec))
             end
         else
-            return fixDateVec([yr, month, day, hr, min, sec])
+            return fixdatevec([yr, month, day, hr, min, sec])
         end
     end
     return [yr, month, day, hr, min, sec]
@@ -284,7 +284,7 @@ end
 #end
 
 """
-    newDateVec = fixDateVec(dateVec)
+    newDateVec = fixdatevec(dateVec)
 
 Adjust a date vector to account for out of bounds conditions.
 
@@ -293,14 +293,14 @@ For example, [2024., 5, 32, 0, 0, 0] will be adjusted to [2024., 6, 1, 0, 0, 0]
 Currently accounts for leap years but not leap seconds. May still have issues
 if required to cross multiple leap years.
 """
-function fixDateVec(dateVec::Vector{Float64})
+function fixdatevec(dateVec::Vector{Float64})
     temp = copy(dateVec)
-    fixDateVec!(temp)
+    fixdatevec!(temp)
     return temp
 end
 
 """
-    fixDateVec!(dateVec)
+    fixdatevec!(dateVec)
 
 Adjust a date vector to account for out of bounds conditions.
 
@@ -309,7 +309,7 @@ For example, [2024., 5, 32, 0, 0, 0] will be adjusted to [2024., 6, 1, 0, 0, 0]
 Currently accounts for leap years but not leap seconds. May still have issues
 if required to cross multiple leap years.
 """
-function fixDateVec!(dateVec::Vector{Float64})
+function fixdatevec!(dateVec::Vector{Float64})
 
     mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if dateVec[6] >= 60 || dateVec[6] < 0
@@ -438,14 +438,14 @@ Derived from SOFA's `utctai`
 """
 function _utc2tai(JD::JulianDate)
     # Get ΔAT at 0h
-    dv = JDate2dateVec(JD)
-    dat0 = DATdateVec(vcat(dv[1:3], zeros(3)))
+    dv = jdate2datevec(JD)
+    dat0 = dat_datevec(vcat(dv[1:3], zeros(3)))
 
     # Get ΔAT at 12h
-    dat12 = DATdateVec(vcat(dv[1:3], [12.0, 0, 0]))
+    dat12 = dat_datevec(vcat(dv[1:3], [12.0, 0, 0]))
 
     # Get ΔAT at 0h tomorrow to detect jumps
-    dat24 = DATdateVec(fixDateVec(vcat(dv[1:2], dv[3] + 1, zeros(3))))
+    dat24 = dat_datevec(fixdatevec(vcat(dv[1:2], dv[3] + 1, zeros(3))))
 
     # Separate ΔAT change inter per-day and any jump
     dlod = 2.0 * (dat12 - dat0)
@@ -459,7 +459,7 @@ function _utc2tai(JD::JulianDate)
     fd *= (86400 + dlod) / 86400
 
     # Today's calendar date to 2-part JD
-    j, m = dateVec2JDate(vcat(dv[1:3], zeros(3)))
+    j, m = datevec2jdate(vcat(dv[1:3], zeros(3)))
     z = JD isa JDate ? j.epoch : m.epoch
 
     # Assemble the TAI result
@@ -521,8 +521,8 @@ function _ut12utc(JD::JulianDate)
 
     for i = -1:3
         d2 = u2 + i
-        dateVec = JDate2dateVec(JD)
-        dats2 = DATdateVec(vcat(dateVec[1:3], zeros(3)))
+        dateVec = jdate2datevec(JD)
+        dats2 = dat_datevec(vcat(dateVec[1:3], zeros(3)))
         if i == -1
             dats1 = dats2
         end
@@ -534,7 +534,7 @@ function _ut12utc(JD::JulianDate)
             end
 
             # UT1 for the start of the UTC day that ends in a leap
-            j, m = dateVec2JDate(vcat(dateVec[1:3], zeros(3)))
+            j, m = datevec2jdate(vcat(dateVec[1:3], zeros(3)))
             if JD isa MJDate
                 d1 = m[1]
                 d2 = m[2]
@@ -596,9 +596,9 @@ Derived from SOFA's `taiut1`
 """
 function _tai2ut1(JD::JulianDate)
     if JD isa MJDate
-        ΔAT = DAT(JD)
+        ΔAT = dat(JD)
     else
-        ΔAT = DAT(MJDate(SA[JD.epoch[1]-JM0, JD.epoch[2]], JD.system))
+        ΔAT = dat(MJDate(SA[JD.epoch[1]-JM0, JD.epoch[2]], JD.system))
     end
     Δut1 = dut1(JD)
     dta = Δut1 - ΔAT
@@ -677,10 +677,10 @@ Derived from SOFA's `tttdb` and 2012 Astronomical Almanac (via Vallado)
 function _tt2tdb(JD::JulianDate)
     if JD isa JDate
         temp = JD.epoch[1] - 2451545.0 + JD.epoch[2]
-        T = JulianCentury(JD)
+        T = juliancentury(JD)
     else
         temp = JD.epoch[1] + JM0 - 2451545.0 + JD.epoch[2]
-        T = JulianCentury(mjdate_to_jdate(JD))
+        T = juliancentury(mjdate_to_jdate(JD))
     end
 
     Δλ = 246.11 + 0.90251792 * temp
@@ -700,7 +700,7 @@ function _tt2tdb(JD::JulianDate)
 end
 
 # Requires the full JD, not modified
-function JulianCentury(JD::JDate)
+function juliancentury(JD::JDate)
     return (JD.epoch[1] - J00 + JD.epoch[2]) / 36525
 end
 
@@ -741,15 +741,15 @@ function _gmst82(JD::JDate)
     C = 0.093104
     D = -6.2e-6
 
-    t = JulianCentury(JD)
+    t = juliancentury(JD)
     f = 86400 * (JD.epoch[1] % 1.0 + JD.epoch[2] % 1.0)
 
-    return wrapTo2pi(S2R * ((A + (B + (C + D * t) * t) * t) + f))
+    return wrapto2pi(S2R * ((A + (B + (C + D * t) * t) * t) + f))
 end
 function _gmst00(JD::JDate, JDtt::JDate)
-    t = JulianCentury(JDtt)
+    t = juliancentury(JDtt)
     era = _era00(JD)
-    return wrapTo2pi(era +
+    return wrapto2pi(era +
                      (0.014506 +
                       (4612.15739966 +
                        (1.39667721 -
@@ -757,9 +757,9 @@ function _gmst00(JD::JDate, JDtt::JDate)
                          (0.00001882) * t) * t) * t) * t) * AS2R)
 end
 function _gmst06(JD::JDate, JDtt::JDate)
-    t = JulianCentury(JDtt)
+    t = juliancentury(JDtt)
     era = _era00(JD)
-    return wrapTo2pi(era +
+    return wrapto2pi(era +
                      (0.014506 +
                       (4612.156534 +
                        (1.3915817 -
@@ -773,7 +773,7 @@ function _era00(JD::JDate)
 
     f = JD.epoch[1] % 1.0 + JD.epoch[2] % 1.0
 
-    theta = wrapTo2pi(2 * pi * (f + 0.7790572732640 + 0.00273781191135448 * t))
+    theta = wrapto2pi(2 * pi * (f + 0.7790572732640 + 0.00273781191135448 * t))
 
     return theta
 end
@@ -791,7 +791,7 @@ Derived from SOFA's `eqeq94`
 """
 function eqeq94(JD::JulianDate)
     useJD = JD isa JDate ? JD : jdate_to_mjdate(JD)
-    om = _lunarLAN(useJD)
+    om = _lunarlan(useJD)
     dψ, _ = NutationTerms(useJD)
     eps0 = obl(useJD; model=80)
     ee = dψ * cos(eps0) + AS2R * (0.00264 * sin(om) + 0.000063 * sin(om + om))
@@ -823,7 +823,7 @@ function gast(JD::JulianDate; model::Integer=94)
     if model == 94
         GMST = gmst(JDUT1, model=82)
         eqeq = eqeq94(JDTT)
-        return wrapTo2pi(GMST + eqeq)
+        return wrapto2pi(GMST + eqeq)
     end
 end
 

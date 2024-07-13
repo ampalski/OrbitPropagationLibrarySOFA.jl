@@ -25,7 +25,7 @@ const AU = 149597870.7 #km
 const CMPS = 299792458.0 #m/s
 
 """
-    dat = DAT(MJD::MJDate)
+    DAT = dat(MJD::MJDate)
 
 Return the ΔAT value for the given MJD.
 
@@ -38,7 +38,7 @@ Requires an update with every new leap second.
 
 Derived from SOFA's `iauDat`
 """
-function DAT(MJD::MJDate)
+function dat(MJD::MJDate)
     drift = [
         37300.0 0.0012960;
         37300.0 0.0012960;
@@ -112,19 +112,19 @@ function DAT(MJD::MJDate)
         error("Underflow, no data available")
     end
 
-    dat = changes[index, 2]
+    DAT = changes[index, 2]
 
     #if pre-1972, adjust for drift
     if MJDbase < 41317
-        dat += (sum(MJD.epoch) - drift[index, 1]) * drift[index, 2]
+        DAT += (sum(MJD.epoch) - drift[index, 1]) * drift[index, 2]
     end
 
-    return dat
+    return DAT
 end
 
 
 """
-    dat = DATdateVec(dateVec)
+    dat = dat_datevec(dateVec)
 
 Return the ΔAT value for the given date vector.
 
@@ -135,9 +135,9 @@ Requires an update with every new leap second.
 
 Derived from SOFA's `iauDat`
 """
-function DATdateVec(dateVec::Vector{Float64})
-    _, MJD = dateVec2JDate(dateVec)
-    return DAT(MJD)
+function dat_datevec(dateVec::Vector{Float64})
+    _, MJD = datevec2jdate(dateVec)
+    return dat(MJD)
 end
 
 """

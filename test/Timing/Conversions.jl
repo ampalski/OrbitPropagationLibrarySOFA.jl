@@ -1,23 +1,23 @@
 @testset "Time Conversions Vallado" begin
-    j, m = dateVec2JDate([2004.0, 5, 14, 16, 43, 0.0])
+    j, m = datevec2jdate([2004.0, 5, 14, 16, 43, 0.0])
     m_UT1 = convert_jd(m, :UT1)
     m_TAI = convert_jd(m_UT1, :TAI)
     m_TT = convert_jd(m_UT1, :TT)
     m_TDB = convert_jd(m_UT1, :TDB)
 
-    d = JDate2dateVec(m_UT1)
+    d = jdate2datevec(m_UT1)
     @test d[5] == 42
     @test isapprox(d[6], 59.5367, atol=0.0001)
 
-    d = JDate2dateVec(m_TAI)
+    d = jdate2datevec(m_TAI)
     @test d[5] == 43
     @test isapprox(d[6], 32.0, atol=0.0001)
 
-    d = JDate2dateVec(m_TT)
+    d = jdate2datevec(m_TT)
     @test d[5] == 44
     @test isapprox(d[6], 4.184, atol=0.0001)
 
-    d = JDate2dateVec(m_TDB)
+    d = jdate2datevec(m_TDB)
     @test d[5] == 44
     @test isapprox(d[6], 4.1856, atol=0.001)
     # Slightly less tolerance due to the approximation made in TDB conversions

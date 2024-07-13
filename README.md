@@ -14,15 +14,15 @@ In order to maintain compatibility with the USSF standards, initial implementati
 
 ```
 date = [2014.0, 8, 28, 6, 46, 24.461] #UTC
-JD, _ = dateVec2JDate(date)
-JDUT1 = UTC2UT1(JD; type=:JD)
-JDTT = UT12TT(JDUT1; type=:JD)
+JD, _ = datevec2jdate(date)
+JDUT1 = convert_jd(JD, :UT1)
+JDTT = convert_jd(JDUT1, :TT)
 
 rJ2000 = [23141.52, 35279.3, -5.05699]
-rMOD = J20002MOD76(r, JDTT)
-rTOD = MOD2TOD76(rMOD, JDTT)
-rPEF = TOD2PEF76(rTOD, JDUT1)
-rITRF = PEF2ITRF76(rPEF, JD)
+rMOD = j20002mod76(r, JDTT)
+rTOD = mod2tod76(rMOD, JDTT)
+rPEF = tod2pef76(rTOD, JDUT1)
+rITRF = pef2itrf76(rPEF, JD)
 ```
 
 ## Future Plans

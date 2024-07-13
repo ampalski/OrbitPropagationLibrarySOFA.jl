@@ -1,9 +1,11 @@
 using OrbitPropagationLibrarySOFA
 using Test
+using StaticArrays
 
 const tests = [
     "Timing/JDate",
     "Timing/Conversions",
+    "Timing/gmst",
     "Coordinates/rotations",
 ]
 @testset "OrbitPropagationLibrarySOFA.jl" begin
