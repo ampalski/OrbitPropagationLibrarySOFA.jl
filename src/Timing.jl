@@ -792,7 +792,7 @@ Derived from SOFA's `eqeq94`
 function eqeq94(JD::JulianDate)
     useJD = JD isa JDate ? JD : jdate_to_mjdate(JD)
     om = _lunarlan(useJD)
-    dψ, _ = NutationTerms(useJD)
+    dψ, _ = nutationterms(useJD)
     eps0 = obl(useJD; model=80)
     ee = dψ * cos(eps0) + AS2R * (0.00264 * sin(om) + 0.000063 * sin(om + om))
 
