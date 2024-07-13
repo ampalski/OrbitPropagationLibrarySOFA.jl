@@ -492,8 +492,6 @@ Derived from SOFA's `tttai`
 function _tt2tai(JD::JulianDate)
     dtat = TTMTAI / 86400.0
 
-    tai = copy(JD)
-    tai[2] -= dtat
     if JD isa JDate
         tai = JDate(SA[JD.epoch[1], JD.epoch[2]-dtat], :TAI)
     else
@@ -744,7 +742,7 @@ function _gmst82(JD::JDate)
     D = -6.2e-6
 
     t = JulianCentury(JD)
-    f = 86400 * (JD[1] % 1.0 + JD[2] % 1.0)
+    f = 86400 * (JD.epoch[1] % 1.0 + JD.epoch[2] % 1.0)
 
     return wrapTo2pi(S2R * ((A + (B + (C + D * t) * t) * t) + f))
 end
