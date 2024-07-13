@@ -340,7 +340,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function itrf2pef76(vec::vector{Float64}, JD::JulianDate)
+function itrf2pef76(vec::Vector{Float64}, JD::JulianDate)
     W = itrf2pef76_matrix(JD)
     return W * vec
 end
@@ -398,7 +398,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function pef2tod76(vec::vector{Float64}, JD::JulianDate)
+function pef2tod76(vec::Vector{Float64}, JD::JulianDate)
     R = pef2tod76_matrix(JD)
     return R * vec
 end
@@ -417,7 +417,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from Vallado's description of the IAU-76 reduction.
 """
-function tod2pef76(vec::vector{Float64}, JD::JulianDate)
+function tod2pef76(vec::Vector{Float64}, JD::JulianDate)
     R = pef2tod76_matrix(JD)
     return R' * vec
 end
@@ -518,7 +518,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
 """
-function tod2mod76(vec::vector{Float64}, JD::JulianDate)
+function tod2mod76(vec::Vector{Float64}, JD::JulianDate)
     N = tod2mod76_matrix(JD)
     return N * vec
 end
@@ -537,7 +537,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `nutm80` and Vallado's description of the IAU-76 reduction.
 """
-function mod2tod76(vec::vector{Float64}, JD::JulianDate)
+function mod2tod76(vec::Vector{Float64}, JD::JulianDate)
     N = tod2mod76_matrix(JD)
     return N' * vec
 end
@@ -576,7 +576,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
 """
-function mod2j200076(vec::vector{Float64}, JD::JulianDate)
+function mod2j200076(vec::Vector{Float64}, JD::JulianDate)
     P = mod2j200076_matrix(JD)
     return P * vec
 end
@@ -595,7 +595,7 @@ available as a single number by adding the two components of the vector.
 
 Derived from SOFA's `pmat76` and Vallado's description of the IAU-76 reduction.
 """
-function j20002mod76(vec::vector{Float64}, JD::JulianDate)
+function j20002mod76(vec::Vector{Float64}, JD::JulianDate)
     P = mod2j200076_matrix(JD)
     return P' * vec
 end
@@ -638,7 +638,7 @@ Derived from Vallado's description of the TEME frame. Note that TEME is not
 fully defined publicly, and may carry some errors due to the ambiguous nature 
 of its definition.
 """
-function teme2tod(vec::vector{Float64}, JD::JulianDate)
+function teme2tod(vec::Vector{Float64}, JD::JulianDate)
     T = teme2tod_matrix(JD)
     return T * vec
 end
@@ -659,7 +659,7 @@ Derived from Vallado's description of the TEME frame. Note that TEME is not
 fully defined publicly, and may carry some errors due to the ambiguous nature 
 of its definition.
 """
-function tod2teme(vec::vector{Float64}, JD::JulianDate)
+function tod2teme(vec::Vector{Float64}, JD::JulianDate)
     T = teme2tod_matrix(JD)
     return T' * vec
 end
