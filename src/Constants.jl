@@ -13,6 +13,8 @@ const R2AS = 206264.8062470963551564734
 const AS2R = 4.848136811095359935899141e-6
 const S2R = 7.272205216643039903848712e-5 #seconds to radians
 
+const S2Days = 1 / 86000.0
+
 const J00 = 2451545.0
 const JM0 = 2400000.5
 const JM00 = 51544.5
@@ -23,7 +25,7 @@ const AU = 149597870.7 #km
 const CMPS = 299792458.0 #m/s
 
 """
-    dat = DAT(MJD)
+    dat = DAT(MJD::MJDate)
 
 Return the ΔAT value for the given MJD.
 
@@ -36,7 +38,7 @@ Requires an update with every new leap second.
 
 Derived from SOFA's `iauDat`
 """
-function DAT(MJD::Vector{Float64})
+function DAT(MJD::MJDate)
     drift = [
         37300.0 0.0012960;
         37300.0 0.0012960;
@@ -97,7 +99,7 @@ function DAT(MJD::Vector{Float64})
         57204.0 36.0;
         57754.0 37.0
     ]
-    MJDbase = floor(sum(MJD))
+    MJDbase = floor(sum(MJD.epoch))
 
     # if pre-UTC year, error out
     if MJDbase < changes[1, 1]
@@ -114,7 +116,7 @@ function DAT(MJD::Vector{Float64})
 
     #if pre-1972, adjust for drift
     if MJDbase < 41317
-        dat += (sum(MJD) - drift[index, 1]) * drift[index, 2]
+        dat += (sum(MJD.epoch) - drift[index, 1]) * drift[index, 2]
     end
 
     return dat
@@ -139,23 +141,16 @@ function DATdateVec(dateVec::Vector{Float64})
 end
 
 """
-    dut1 = dut1(MJD)
+    dut1 = dut1(JD::JulianDate)
 
-Return the UTC-UT1 value for the given MJD date.
+Return the UTC-UT1 value for the given (M)JD date.
 
 The input values are Julian Date returned in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
 available as a single number by adding the two components of the vector.
-
-The use of the full Julian Date or Modified Julian date is specified by the
-`type` option, with `:JD` specifying the full Julian Date, and `:MJD` (default)
-specifying Modified Julian Date.
 """
-function dut1(MJD::Vector{Float64}; type::Symbol=:MJD)
-    useJD = copy(MJD)
-    if type != :MJD
-        useJD[1] -= JM0
-    end
+function dut1(JD::JulianDate)
+    useJD = JD isa MJDate ? copy(JD.epoch) : SA[JD.epoch[1]-JM0, JD.epoch[2]]
 
     firstDate = EOP[1, :MJD] - 1
     date = Int(floor(useJD[1] + useJD[2])) - firstDate

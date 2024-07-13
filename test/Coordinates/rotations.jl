@@ -1,7 +1,7 @@
 @testset "ITRF2PEF Vallado" begin
     date1 = [2004.0, 4, 6, 7, 51, 28.386009]#UTC, doesn't matter for this test
 
-    JD, _ = dateVec2JDate(date1)
+    JD, _ = dateVec2JDate(date1, system=:UTC)
 
     pos = [-1033.4793830, 7901.2952754, 6380.3565958]
     vel = [-3.225636520, -2.872451450, 5.531924446]
@@ -26,7 +26,7 @@ end
 @testset "PEF2TOD Vallado" begin
     date1 = [2004.0, 4, 6, 7, 51, 27.946047] #UT1
 
-    JD, _ = dateVec2JDate(date1)
+    JD, _ = dateVec2JDate(date1, system=:UT1)
 
     pos = [-1033.4750313, 7901.3055856, 6380.3445327]
     vel = [-3.225632747, -2.872442511, 5.531931288]
@@ -79,8 +79,10 @@ end
 
 @testset "Nutation SOFA" begin
 
-    JD = [2400000.5, 53736.0]
+    JD = JDate(SA[2400000.5, 53736.0], :TT)
     N = TOD2MOD76_matrix(JD)'
+    # Note the transpose to account for SOFA's test expecting the MOD ->TOD 
+    # conversion
 
     @test isapprox(N[1, 1], 0.9999999999534999268; atol=1e-12)
     @test isapprox(N[1, 2], 0.8847935789636432161e-5; atol=1e-12)
@@ -96,8 +98,10 @@ end
 end
 
 @testset "Precession SOFA" begin
-    JD = [2400000.5, 50123.9999]
+    JD = JDate(SA[2400000.5, 50123.9999], :TT)
     P = MOD2J200076_matrix(JD)'
+    # Note the transpose to account for SOFA's test expecting the MOD ->TOD 
+    # conversion
 
     @test isapprox(P[1, 1], 0.9999995504328350733; atol=1e-12)
     @test isapprox(P[1, 2], 0.8696632209480960785e-3; atol=1e-14)
@@ -115,7 +119,7 @@ end
 @testset "Precession Vallado" begin
     date1 = [2004.0, 4, 6, 7, 52, 32.570009] #TT
 
-    JD, _ = dateVec2JDate(date1)
+    JD, _ = dateVec2JDate(date1, system=:TT)
 
     pos = [5094.0283745, 6127.8708164, 6380.2485164]
     vel = [-4.746263052, 0.786014045, 5.531790562]
@@ -141,8 +145,8 @@ end
 
 @testset "External Val 1" begin
     date1 = [2014.0, 8, 1, 0, 0, 0] #UTC
-    JD, _ = dateVec2JDate(date1)
-    JDUT1 = UTC2UT1(JD; type=:JD)
+    JD, _ = dateVec2JDate(date1, system=:UTC)
+    JDUT1 = convert_jd(JD, :UT1)
 
     pos = [9891.04671, 20034.03101, 30013.410277]
     posPEF = TOD2PEF76(pos, JDUT1)
@@ -157,8 +161,8 @@ end
 
 @testset "External Val 2" begin
     date1 = [2014.0, 6, 1, 0, 0, 0] #UTC
-    JD, _ = dateVec2JDate(date1)
-    JDUT1 = UTC2UT1(JD; type=:JD)
+    JD, _ = dateVec2JDate(date1, system=:UTC)
+    JDUT1 = convert_jd(JD, :UT1)
 
     pos = [9892.40716, 20033.656809, 30013.211681]
     posPEF = TOD2PEF76(pos, JDUT1)
@@ -170,9 +174,9 @@ end
 
 @testset "External Val 3" begin
     date1 = [2014.0, 8, 28, 6, 46, 24.461] #UTC
-    JD, _ = dateVec2JDate(date1)
-    JDUT1 = UTC2UT1(JD; type=:JD)
-    JDTT = UT12TT(JDUT1; type=:JD)
+    JD, _ = dateVec2JDate(date1, system=:UTC)
+    JDUT1 = convert_jd(JD, :UT1)
+    JDTT = convert_jd(JDUT1, :TT)
 
     pos = [23141.52, 35279.3, -5.05699] #J2k
     posMOD = J20002MOD76(pos, JDTT)
