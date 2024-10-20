@@ -669,8 +669,6 @@ function tod2teme(vec::Vector{Float64}, JD::JulianDate)
     return T' * vec
 end
 
-#TODO: write the convert_pos and convert_vel routines to simplify
-
 const validFrames = [:ITRF, :PEF, :TOD, :TEME, :MOD, :J2000]
 function _num_frame(frame::Symbol)
     if frame == :ITRF
