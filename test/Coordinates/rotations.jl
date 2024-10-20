@@ -33,6 +33,7 @@ end
 
     posTOD = pef2tod76(pos, JD)
     velTOD = pef2tod76_vel(vel, pos, JD)
+    posTOD2, velTOD2 = convert_posvel(pos, vel, :PEF, :TOD, JD)
     posPEF = tod2pef76(posTOD, JD)
     velPEF = tod2pef76_vel(velTOD, posPEF, JD)
 
@@ -42,6 +43,13 @@ end
     @test isapprox(velTOD[1], -4.746088567; atol=1e-8)
     @test isapprox(velTOD[2], 0.786077222; atol=1e-8)
     @test isapprox(velTOD[3], 5.531931288; atol=1e-8)
+
+    @test isapprox(posTOD[1], posTOD2[1]; atol=1e-5)
+    @test isapprox(posTOD[2], posTOD2[2]; atol=1e-5)
+    @test isapprox(posTOD[3], posTOD2[3]; atol=1e-5)
+    @test isapprox(velTOD[1], velTOD2[1]; atol=1e-8)
+    @test isapprox(velTOD[2], velTOD2[2]; atol=1e-8)
+    @test isapprox(velTOD[3], velTOD2[3]; atol=1e-8)
 
     posDiff = posPEF - pos
     velDiff = velPEF - vel
@@ -182,6 +190,7 @@ end
     posMOD = j20002mod76(pos, JDTT)
     posTOD = mod2tod76(posMOD, JDTT)
     posPEF = tod2pef76(posTOD, JDUT1)
+    posPEF2 = convert_pos(pos, :J2000, :PEF, JD)
 
     @test isapprox(posTOD[1], 23024.613191; atol=1e-4)
     @test isapprox(posTOD[2], 35355.699039; atol=1e-4)
@@ -190,4 +199,9 @@ end
     @test isapprox(posPEF[1], 39365.211746; atol=1e-3)
     @test isapprox(posPEF[2], -15183.49009; atol=1e-3)
     @test isapprox(posPEF[3], posTOD[3]; atol=1e-4)
+
+    @test isapprox(posPEF2[1], 39365.211746; atol=1e-3)
+    @test isapprox(posPEF2[2], -15183.49009; atol=1e-3)
+    @test isapprox(posPEF2[3], posTOD[3]; atol=1e-4)
+
 end

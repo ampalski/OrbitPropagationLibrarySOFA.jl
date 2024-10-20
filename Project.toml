@@ -1,7 +1,7 @@
 name = "OrbitPropagationLibrarySOFA"
 uuid = "38b9e004-e2fa-4648-aa91-337faf7b69aa"
 authors = ["Andrew Palski"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -12,7 +12,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 [compat]
 DataFrames = "1"
 FileIO = "1"
-JLD2 = "0.4"
+JLD2 = "0.5"
 StaticArrays = "1"
 julia = "1.6.7"
 
