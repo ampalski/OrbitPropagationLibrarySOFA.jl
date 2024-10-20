@@ -430,6 +430,8 @@ IAU-76 model.
 
 The state vector must be of length 3.
 
+Note that both velocity and position vectors must be in PEF.
+
 The input Julian Date is given in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
 available as a single number by adding the two components of the vector.
@@ -459,6 +461,9 @@ Transform a TOD velocity vector into PEF at the given Julian Date using the
 IAU-76 model.
 
 The state vector must be of length 3.
+
+Note that while the velocity vector is given in TOD, the position vector is 
+given in PEF.
 
 The input Julian Date is given in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
@@ -662,4 +667,229 @@ of its definition.
 function tod2teme(vec::Vector{Float64}, JD::JulianDate)
     T = teme2tod_matrix(JD)
     return T' * vec
+end
+
+const validFrames = [:ITRF, :PEF, :TOD, :TEME, :MOD, :J2000]
+function _num_frame(frame::Symbol)
+    if frame == :ITRF
+        return 1
+    elseif frame == :PEF
+        return 2
+    elseif frame == :TOD || frame == :TEME
+        return 3
+    elseif frame == :MOD
+        return 4
+    else
+        return 5
+    end
+end
+
+function convert_pos(
+    pos::AbstractVector,
+    oldFrame::Symbol,
+    newFrame::Symbol,
+    epoch::JulianDate
+)
+    if !(oldFrame in validFrames)
+        error("Invalid source coordinate frame provided.")
+    end
+    oldFrameNum = _num_frame(oldFrame)
+    if !(newFrame in validFrames)
+        error("Invalid destination coordinate frame provided.")
+    end
+    newFrameNum = _num_frame(newFrame)
+    if newFrame == oldFrame
+        return pos
+    end
+    if pos isa SVector{3,Float64}
+        svFlag = true
+        usePos = pos[1:3]
+    else
+        svFlag = false
+        if length(pos) != 3
+            error("Position vectors must be of length 3")
+        end
+        usePos = copy(pos)
+    end
+
+    if oldFrame == :TEME
+        usePos = teme2tod(usePos, epoch)
+    end
+
+    currentFrame = oldFrameNum
+    dir = newFrameNum > oldFrameNum
+    ktr = 0
+    while currentFrame != newFrameNum
+        if currentFrame == 1
+            usePos = itrf2pef76(usePos, epoch)
+            currentFrame = 2
+        elseif currentFrame == 2 && dir
+            usePos = pef2tod76(usePos, epoch)
+            currentFrame = 3
+        elseif currentFrame == 2
+            usePos = pef2itrf76(usePos, epoch)
+            currentFrame = 1
+        elseif currentFrame == 3 && dir
+            usePos = tod2mod76(usePos, epoch)
+            currentFrame = 4
+        elseif currentFrame == 3
+            usePos = tod2pef76(usePos, epoch)
+            currentFrame = 2
+        elseif currentFrame == 4 && dir
+            usePos = mod2j200076(usePos, epoch)
+            currentFrame = 5
+        elseif currentFrame == 4
+            usePos = mod2tod76(usePos, epoch)
+            currentFrame = 3
+        else
+            usePos = j20002mod76(usePos, epoch)
+            currentFrame = 4
+        end
+        ktr += 1
+        if ktr > 8
+            error("Inf looped")
+        end
+    end
+
+    if newFrame == :TEME
+        usePos = tod2teme(usePos, epoch)
+    end
+
+    if svFlag
+        return SA[usePos...]
+    else
+        return usePos
+    end
+end
+
+function convert_posvel(
+    pos::AbstractVector,
+    vel::AbstractVector,
+    oldFrame::Symbol,
+    newFrame::Symbol,
+    epoch::JulianDate
+)
+    if !(oldFrame in validFrames)
+        error("Invalid source coordinate frame provided.")
+    end
+    oldFrameNum = _num_frame(oldFrame)
+    if !(newFrame in validFrames)
+        error("Invalid destination coordinate frame provided.")
+    end
+    newFrameNum = _num_frame(newFrame)
+    if newFrame == oldFrame
+        return (pos, vel)
+    end
+    if pos isa SVector{3,Float64} && vel isa SVector{3,Float64}
+        svFlag = true
+        usePos = pos[1:3]
+        useVel = vel[1:3]
+    else
+        svFlag = false
+        if length(pos) != 3
+            error("Position vectors must be of length 3")
+        end
+        if length(vel) != 3
+            error("Velocity vectors must be of length 3")
+        end
+        usePos = copy(pos)
+        useVel = copy(vel)
+    end
+
+    if oldFrame == :TEME
+        usePos = teme2tod(usePos, epoch)
+        useVel = teme2tod(useVel, epoch)
+    end
+
+    currentFrame = oldFrameNum
+    dir = newFrameNum > oldFrameNum
+    ktr = 0
+    while currentFrame != newFrameNum
+        if currentFrame == 1
+            usePos = itrf2pef76(usePos, epoch)
+            useVel = itrf2pef76(useVel, epoch)
+            currentFrame = 2
+        elseif currentFrame == 2 && dir
+            useVel = pef2tod76_vel(useVel, usePos, epoch)
+            usePos = pef2tod76(usePos, epoch)
+            currentFrame = 3
+        elseif currentFrame == 2
+            usePos = pef2itrf76(usePos, epoch)
+            useVel = pef2itrf76(useVel, epoch)
+            currentFrame = 1
+        elseif currentFrame == 3 && dir
+            usePos = tod2mod76(usePos, epoch)
+            useVel = tod2mod76(useVel, epoch)
+            currentFrame = 4
+        elseif currentFrame == 3
+            usePos = tod2pef76(usePos, epoch)
+            useVel = tod2pef76_vel(useVel, usePos, epoch)
+            currentFrame = 2
+        elseif currentFrame == 4 && dir
+            usePos = mod2j200076(usePos, epoch)
+            useVel = mod2j200076(useVel, epoch)
+            currentFrame = 5
+        elseif currentFrame == 4
+            usePos = mod2tod76(usePos, epoch)
+            useVel = mod2tod76(useVel, epoch)
+            currentFrame = 3
+        else
+            usePos = j20002mod76(usePos, epoch)
+            useVel = j20002mod76(useVel, epoch)
+            currentFrame = 4
+        end
+        ktr += 1
+        if ktr > 8
+            error("Inf looped")
+        end
+    end
+
+    if newFrame == :TEME
+        usePos = tod2teme(usePos, epoch)
+        useVel = tod2teme(useVel, epoch)
+    end
+
+    if svFlag
+        return (SA[usePos...], SA[useVel...])
+    else
+        return (usePos, useVel)
+    end
+end
+
+function convert_state(
+    state::AbstractVector,
+    oldFrame::Symbol,
+    newFrame::Symbol,
+    epoch::JulianDate,
+)
+    if state isa SVector{6,Float64}
+        svFlag = true
+    else
+        svFlag = false
+        if length(state) != 6
+            error("State vectors must be of length 6")
+        end
+    end
+
+    usePos = state[1:3]
+    useVel = state[4:6]
+
+    usePos, useVel = convert_posvel(usePos, useVel, oldFrame, newFrame, epoch)
+    state = vcat(usePos, useVel)
+    if svFlag
+        return SA[state...]
+    else
+        return state
+    end
+end
+
+function convert_vel(
+    pos::AbstractVector,
+    vel::AbstractVector,
+    oldFrame::Symbol,
+    newFrame::Symbol,
+    epoch::JulianDate
+)
+    _, newVel = convert_posvel(pos, vel, oldFrame, newFrame, epoch)
+    return newVel
 end
