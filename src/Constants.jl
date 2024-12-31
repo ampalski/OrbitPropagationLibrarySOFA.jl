@@ -154,6 +154,11 @@ function dut1(JD::JulianDate)
 
     firstDate = EOP[1, :MJD] - 1
     date = Int(floor(useJD[1] + useJD[2])) - firstDate
+    maxdate = size(EOP)[1]
+    if date > maxdate
+        @info "The requested date is beyond the date range of loaded EOP values. Continuing with the EOP values at the last loaded date."
+        date = maxdate
+    end
 
     return EOP[date, :dUT1]
 end

@@ -280,8 +280,8 @@ end
 """
     rotMatrix = itrf2pef76_matrix(JD)
 
-Find the ITRF to PEF rotation matrix for a given Julian Date using the IAU-76
-model.
+Find the ITRF to PEF rotation matrix for a given UTC Julian Date using the 
+IAU-76 model.
 
 The input values are Julian Date is given in two pieces, in the usual SOFA
 manner, which is designed to preserve time resolution. The full Julian Date is
@@ -329,7 +329,7 @@ end
 """
     r_PEF = itrf2pef76(r_itrf, JD)
 
-Transform an ITRF vector into PEF at the given Julian Date using the IAU-76 
+Transform an ITRF vector into PEF at the given UTC Julian Date using the IAU-76 
 model.
 
 The state vector must be of length 3.
@@ -348,7 +348,7 @@ end
 """
     r_PEF = pef2itrf76(r_ITRF, JD)
 
-Transform a PEF vector into ITRF at the given Julian Date using the IAU-76 
+Transform a PEF vector into ITRF at the given UTC Julian Date using the IAU-76 
 model.
 
 The state vector must be of length 3.
@@ -425,7 +425,7 @@ end
 """
     v_TOD = pef2tod76_vel(v_PEF, r_PEF, JD)
 
-Transform a PEF velocity vector into TOD at the given Julian Date using the
+Transform a PEF velocity vector into TOD at the given UT1 Julian Date using the
 IAU-76 model.
 
 The state vector must be of length 3.
@@ -457,7 +457,7 @@ end
 """
     v_PEF = tod2pef76_vel(v_TOD, r_PEF, JD)
 
-Transform a TOD velocity vector into PEF at the given Julian Date using the 
+Transform a TOD velocity vector into PEF at the given UT1 Julian Date using the 
 IAU-76 model.
 
 The state vector must be of length 3.
@@ -713,7 +713,8 @@ function convert_pos(
     end
 
     if oldFrame == :TEME
-        usePos = teme2tod(usePos, epoch)
+        epochuse = convert_jd(epoch, :TT)
+        usePos = teme2tod(usePos, epochuse)
     end
 
     currentFrame = oldFrameNum
@@ -721,28 +722,36 @@ function convert_pos(
     ktr = 0
     while currentFrame != newFrameNum
         if currentFrame == 1
-            usePos = itrf2pef76(usePos, epoch)
+            epochuse = convert_jd(epoch, :UTC)
+            usePos = itrf2pef76(usePos, epochuse)
             currentFrame = 2
         elseif currentFrame == 2 && dir
-            usePos = pef2tod76(usePos, epoch)
+            epochuse = convert_jd(epoch, :UT1)
+            usePos = pef2tod76(usePos, epochuse)
             currentFrame = 3
         elseif currentFrame == 2
-            usePos = pef2itrf76(usePos, epoch)
+            epochuse = convert_jd(epoch, :UTC)
+            usePos = pef2itrf76(usePos, epochuse)
             currentFrame = 1
         elseif currentFrame == 3 && dir
-            usePos = tod2mod76(usePos, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = tod2mod76(usePos, epochuse)
             currentFrame = 4
         elseif currentFrame == 3
-            usePos = tod2pef76(usePos, epoch)
+            epochuse = convert_jd(epoch, :UT1)
+            usePos = tod2pef76(usePos, epochuse)
             currentFrame = 2
         elseif currentFrame == 4 && dir
-            usePos = mod2j200076(usePos, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = mod2j200076(usePos, epochuse)
             currentFrame = 5
         elseif currentFrame == 4
-            usePos = mod2tod76(usePos, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = mod2tod76(usePos, epochuse)
             currentFrame = 3
         else
-            usePos = j20002mod76(usePos, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = j20002mod76(usePos, epochuse)
             currentFrame = 4
         end
         ktr += 1
@@ -752,7 +761,8 @@ function convert_pos(
     end
 
     if newFrame == :TEME
-        usePos = tod2teme(usePos, epoch)
+        epochuse = convert_jd(epoch, :TT)
+        usePos = tod2teme(usePos, epochuse)
     end
 
     if svFlag
@@ -797,8 +807,9 @@ function convert_posvel(
     end
 
     if oldFrame == :TEME
-        usePos = teme2tod(usePos, epoch)
-        useVel = teme2tod(useVel, epoch)
+        epochuse = convert_jd(epoch, :TT)
+        usePos = teme2tod(usePos, epochuse)
+        useVel = teme2tod(useVel, epochuse)
     end
 
     currentFrame = oldFrameNum
@@ -806,36 +817,44 @@ function convert_posvel(
     ktr = 0
     while currentFrame != newFrameNum
         if currentFrame == 1
-            usePos = itrf2pef76(usePos, epoch)
-            useVel = itrf2pef76(useVel, epoch)
+            epochuse = convert_jd(epoch, :UTC)
+            usePos = itrf2pef76(usePos, epochuse)
+            useVel = itrf2pef76(useVel, epochuse)
             currentFrame = 2
         elseif currentFrame == 2 && dir
-            useVel = pef2tod76_vel(useVel, usePos, epoch)
-            usePos = pef2tod76(usePos, epoch)
+            epochuse = convert_jd(epoch, :UT1)
+            useVel = pef2tod76_vel(useVel, usePos, epochuse)
+            usePos = pef2tod76(usePos, epochuse)
             currentFrame = 3
         elseif currentFrame == 2
-            usePos = pef2itrf76(usePos, epoch)
-            useVel = pef2itrf76(useVel, epoch)
+            epochuse = convert_jd(epoch, :UTC)
+            usePos = pef2itrf76(usePos, epochuse)
+            useVel = pef2itrf76(useVel, epochuse)
             currentFrame = 1
         elseif currentFrame == 3 && dir
-            usePos = tod2mod76(usePos, epoch)
-            useVel = tod2mod76(useVel, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = tod2mod76(usePos, epochuse)
+            useVel = tod2mod76(useVel, epochuse)
             currentFrame = 4
         elseif currentFrame == 3
-            usePos = tod2pef76(usePos, epoch)
-            useVel = tod2pef76_vel(useVel, usePos, epoch)
+            epochuse = convert_jd(epoch, :UT1)
+            usePos = tod2pef76(usePos, epochuse)
+            useVel = tod2pef76_vel(useVel, usePos, epochuse)
             currentFrame = 2
         elseif currentFrame == 4 && dir
-            usePos = mod2j200076(usePos, epoch)
-            useVel = mod2j200076(useVel, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = mod2j200076(usePos, epochuse)
+            useVel = mod2j200076(useVel, epochuse)
             currentFrame = 5
         elseif currentFrame == 4
-            usePos = mod2tod76(usePos, epoch)
-            useVel = mod2tod76(useVel, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = mod2tod76(usePos, epochuse)
+            useVel = mod2tod76(useVel, epochuse)
             currentFrame = 3
         else
-            usePos = j20002mod76(usePos, epoch)
-            useVel = j20002mod76(useVel, epoch)
+            epochuse = convert_jd(epoch, :TT)
+            usePos = j20002mod76(usePos, epochuse)
+            useVel = j20002mod76(useVel, epochuse)
             currentFrame = 4
         end
         ktr += 1
@@ -845,8 +864,9 @@ function convert_posvel(
     end
 
     if newFrame == :TEME
-        usePos = tod2teme(usePos, epoch)
-        useVel = tod2teme(useVel, epoch)
+        epochuse = convert_jd(epoch, :TT)
+        usePos = tod2teme(usePos, epochuse)
+        useVel = tod2teme(useVel, epochuse)
     end
 
     if svFlag
