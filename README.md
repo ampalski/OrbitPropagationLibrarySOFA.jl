@@ -26,11 +26,9 @@ rITRF = pef2itrf76(rPEF, JD)
 ```
 
 ## Future Plans
-- Support for TEME
 - Support for GCRF (vice the current J2000)
 - User defined EOP values, particularly for date values beyond what is included.
 - More complete leap second handling
-- Refactoring for use with StaticArrays.jl
 
 ## License Note
 

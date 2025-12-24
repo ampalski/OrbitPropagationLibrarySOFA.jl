@@ -37,11 +37,11 @@ vector.
 
 """
 function convert_pos(
-    pos::AbstractVector,
-    oldFrame::Symbol,
-    newFrame::Symbol,
-    epoch::JulianDate
-)
+        pos::AbstractVector,
+        oldFrame::Symbol,
+        newFrame::Symbol,
+        epoch::JulianDate
+    )
     if !(oldFrame in validFrames)
         error("Invalid source coordinate frame provided.")
     end
@@ -53,15 +53,15 @@ function convert_pos(
     if newFrame == oldFrame
         return pos
     end
-    if pos isa SVector{3,Float64}
+    if pos isa SVector{3, Float64}
         svFlag = true
-        usePos = pos[1:3]
+        usePos = pos[pos_inds]
     else
         svFlag = false
         if length(pos) != 3
             error("Position vectors must be of length 3")
         end
-        usePos = copy(pos)
+        usePos = SA[pos...]
     end
 
     if oldFrame == :TEME
@@ -118,9 +118,9 @@ function convert_pos(
     end
 
     if svFlag
-        return SA[usePos...]
-    else
         return usePos
+    else
+        return [usePos...]
     end
 end
 
@@ -145,12 +145,32 @@ vector.
 
 """
 function convert_posvel(
-    pos::AbstractVector,
-    vel::AbstractVector,
-    oldFrame::Symbol,
-    newFrame::Symbol,
-    epoch::JulianDate
-)
+        pos::AbstractVector,
+        vel::AbstractVector,
+        oldFrame::Symbol,
+        newFrame::Symbol,
+        epoch::JulianDate
+    )
+
+    if length(pos) != 3
+        error("Position vectors must be of length 3")
+    end
+    if length(vel) != 3
+        error("Velocity vectors must be of length 3")
+    end
+    usePos = SA[pos...]
+    useVel = SA[vel...]
+
+    (pos, vel) = convert_posvel(usePos, useVel, oldFrame, newFrame, epoch)
+    return ([pos...], [vel...])
+end
+function convert_posvel(
+        pos::SVector{3, Float64},
+        vel::SVector{3, Float64},
+        oldFrame::Symbol,
+        newFrame::Symbol,
+        epoch::JulianDate
+    )
     if !(oldFrame in validFrames)
         error("Invalid source coordinate frame provided.")
     end
@@ -162,21 +182,8 @@ function convert_posvel(
     if newFrame == oldFrame
         return (pos, vel)
     end
-    if pos isa SVector{3,Float64} && vel isa SVector{3,Float64}
-        svFlag = true
-        usePos = pos[1:3]
-        useVel = vel[1:3]
-    else
-        svFlag = false
-        if length(pos) != 3
-            error("Position vectors must be of length 3")
-        end
-        if length(vel) != 3
-            error("Velocity vectors must be of length 3")
-        end
-        usePos = copy(pos)
-        useVel = copy(vel)
-    end
+    usePos = pos[pos_inds]
+    useVel = vel[pos_inds]
 
     if oldFrame == :TEME
         epochuse = convert_jd(epoch, :TT)
@@ -241,11 +248,7 @@ function convert_posvel(
         useVel = tod2teme(useVel, epochuse)
     end
 
-    if svFlag
-        return (SA[usePos...], SA[useVel...])
-    else
-        return (usePos, useVel)
-    end
+    return (usePos, useVel)
 end
 
 """
@@ -268,30 +271,34 @@ vector.
 
 """
 function convert_state(
-    state::AbstractVector,
-    oldFrame::Symbol,
-    newFrame::Symbol,
-    epoch::JulianDate,
-)
-    if state isa SVector{6,Float64}
-        svFlag = true
-    else
-        svFlag = false
-        if length(state) != 6
-            error("State vectors must be of length 6")
-        end
+        state::AbstractVector,
+        oldFrame::Symbol,
+        newFrame::Symbol,
+        epoch::JulianDate,
+    )
+    if length(state) != 6
+        error("State vectors must be of length 6")
     end
 
     usePos = state[1:3]
     useVel = state[4:6]
 
     usePos, useVel = convert_posvel(usePos, useVel, oldFrame, newFrame, epoch)
-    state = vcat(usePos, useVel)
-    if svFlag
-        return SA[state...]
-    else
-        return state
-    end
+    return vcat(usePos, useVel)
+end
+
+function convert_state(
+        state::SVector{6, Float64},
+        oldFrame::Symbol,
+        newFrame::Symbol,
+        epoch::JulianDate,
+    )
+
+    usePos = state[pos_inds]
+    useVel = state[vel_inds]
+
+    usePos, useVel = convert_posvel(usePos, useVel, oldFrame, newFrame, epoch)
+    return vcat(usePos, useVel)
 end
 
 """
@@ -315,12 +322,12 @@ vector.
 
 """
 function convert_vel(
-    pos::AbstractVector,
-    vel::AbstractVector,
-    oldFrame::Symbol,
-    newFrame::Symbol,
-    epoch::JulianDate
-)
+        pos::AbstractVector,
+        vel::AbstractVector,
+        oldFrame::Symbol,
+        newFrame::Symbol,
+        epoch::JulianDate
+    )
     _, newVel = convert_posvel(pos, vel, oldFrame, newFrame, epoch)
     return newVel
 end

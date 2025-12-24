@@ -26,7 +26,7 @@ function R1(theta::Float64)
     R[2, 3] = st
     R[3, 2] = -st
 
-    return R
+    return SMatrix{3, 3, Float64}(R)
 end
 
 function R2(theta::Float64)
@@ -39,7 +39,7 @@ function R2(theta::Float64)
     R[3, 1] = st
     R[1, 3] = -st
 
-    return R
+    return SMatrix{3, 3, Float64}(R)
 end
 
 function R3(theta::Float64)
@@ -52,15 +52,15 @@ function R3(theta::Float64)
     R[1, 2] = st
     R[2, 1] = -st
 
-    return R
+    return SMatrix{3, 3, Float64}(R)
 end
 
-function cross(a::Vector{Float64}, b::Vector{Float64})
+function cross(a::SVector{3, Float64}, b::SVector{3, Float64})
     if !(length(a) == length(b) == 3)
         throw(DimensionMismatch("cross product is only defined for vectors of length 3"))
     end
     a1, a2, a3 = a
     b1, b2, b3 = b
 
-    return [a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1]
+    return SA[a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1]
 end
