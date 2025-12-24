@@ -13,12 +13,14 @@ In order to maintain compatibility with the USSF standards, initial implementati
 ## Usage Example
 
 ```
+using OrbitPropagationLibrarySOFA
+using StaticArrays
 date = [2014.0, 8, 28, 6, 46, 24.461] #UTC
 JD, _ = datevec2jdate(date)
 JDUT1 = convert_jd(JD, :UT1)
 JDTT = convert_jd(JDUT1, :TT)
 
-rJ2000 = [23141.52, 35279.3, -5.05699]
+rJ2000 = SA[23141.52, 35279.3, -5.05699]
 rMOD = j20002mod76(r, JDTT)
 rTOD = mod2tod76(rMOD, JDTT)
 rPEF = tod2pef76(rTOD, JDUT1)
