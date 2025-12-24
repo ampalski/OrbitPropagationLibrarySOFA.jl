@@ -32,7 +32,6 @@ function datevec2jdate(dateVec::Vector{Float64}; system::Symbol = :UTC)
         dateVec[2] == 2 &&
         dateVec[1] % 4 == 0 &&
         (dateVec[1] % 100 != 0 || dateVec[1] % 400 == 0)
-    mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if dateVec[3] < 1 || dateVec[3] > (mtab[Int(dateVec[2])] + leapYear)
         error("Day field out of bounds")
     end
@@ -66,6 +65,8 @@ function datevec2jdate(dateVec::Vector{Float64}; system::Symbol = :UTC)
     return (JDate(SA[jd, frac], system), MJDate(SA[mjd, frac], system))
 end
 
+leapYear(x) = x % 4 == 0 && (x % 100 != 0 || x % 400 == 0)
+
 """
     dateVec = jdate2datevec(JD)
 
@@ -84,7 +85,6 @@ seconds precision. Also utilized `d2dtf` from SOFA to handle UTC values
 """
 function jdate2datevec(JD::JulianDate)
 
-    mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     # Convert to full JD if MJD
 
     useJD = JD isa JDate ? copy(JD.epoch) : SA[JD.epoch[1] + JM0, JD.epoch[2]]
@@ -118,6 +118,7 @@ function jdate2datevec(JD::JulianDate)
     end
     day = dayOfYear - sum(mtab[1:month])
     month += 1
+    mtab[2] = 28
 
     #Separate date from fraction (-.5 < f < .5)
     d = round(useJD[1])
@@ -311,7 +312,6 @@ if required to cross multiple leap years.
 """
 function fixdatevec!(dateVec::Vector{Float64})
 
-    mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if dateVec[6] >= 60 || dateVec[6] < 0
         temp = floor(dateVec[6] / 60.0)
         dateVec[5] += temp
@@ -335,7 +335,6 @@ function fixdatevec!(dateVec::Vector{Float64})
     end
 
     yr = dateVec[1]
-    leapYear(x) = x % 4 == 0 && (x % 100 != 0 || x % 400 == 0)
     mtab[2] += leapYear(yr)
     dayOfYear = sum(mtab[1:(Int(dateVec[2]) - 1)]) + dateVec[3]
 
@@ -364,6 +363,7 @@ function fixdatevec!(dateVec::Vector{Float64})
         dayOfYear -= mtab[i]
         i += 1
     end
+    mtab[2] = 28
     dateVec[2] = i
     return dateVec[3] = dayOfYear
 end
