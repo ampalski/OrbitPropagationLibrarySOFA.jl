@@ -4,7 +4,6 @@
 
 module OrbitPropagationLibrarySOFA
 
-using DataFrames
 using JLD2, FileIO
 using StaticArrays
 
