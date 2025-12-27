@@ -4,6 +4,7 @@
 
 # add to this from sofam.h as needed
 EOP = load("$(dirname(@__DIR__))/data/EOP.jld2")["EOP"]
+const maxEOP = 61216
 
 const WGS84 = 1
 const GRS80 = 2
@@ -253,6 +254,7 @@ function dat_datevec(dateVec::Vector{Float64})
     return dat(MJD)
 end
 
+export dut1
 """
     dut1 = dut1(JD::JulianDate)
 
@@ -265,13 +267,24 @@ available as a single number by adding the two components of the vector.
 function dut1(JD::JulianDate)
     useJD = JD isa MJDate ? copy(JD.epoch) : SA[JD.epoch[1] - JM0, JD.epoch[2]]
 
-    firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(useJD[1] + useJD[2])) - firstDate
-    maxdate = size(EOP)[1]
-    if date > maxdate
+    date = Int(floor(useJD[1] + useJD[2]))
+    if date > maxEOP
         @info "The requested date is beyond the date range of loaded EOP values. Continuing with the EOP values at the last loaded date."
-        date = maxdate
+        date = maxEOP
     end
 
-    return EOP[date, :dUT1]
+    return EOP[date].dUT1
 end
+# function dut1(JD::JulianDate)
+#     useJD = JD isa MJDate ? copy(JD.epoch) : SA[JD.epoch[1] - JM0, JD.epoch[2]]
+#
+#     firstDate = EOP[1, :MJD] - 1
+#     date = Int(floor(useJD[1] + useJD[2])) - firstDate
+#     maxdate = size(EOP)[1]
+#     if date > maxdate
+#         @info "The requested date is beyond the date range of loaded EOP values. Continuing with the EOP values at the last loaded date."
+#         date = maxdate
+#     end
+#
+#     return EOP[date, :dUT1]
+# end

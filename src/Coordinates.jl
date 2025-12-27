@@ -229,11 +229,14 @@ Derived from Vallado's description of the IAU-76 reduction.
 """
 function itrf2pef76_matrix(JD::JulianDate)
     useJD = JD isa MJDate ? JD : jdate_to_mjdate(JD)
-    firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(useJD.epoch[1] + useJD.epoch[2])) - firstDate
+    date = Int(floor(useJD.epoch[1] + useJD.epoch[2]))
+    if date > maxEOP
+        @info "The requested date is beyond the date range of loaded EOP values. Continuing with the EOP values at the last loaded date."
+        date = maxEOP
+    end
 
-    xp = EOP[date, :xp] * AS2R
-    yp = EOP[date, :yp] * AS2R
+    xp = EOP[date].xp * AS2R
+    yp = EOP[date].yp * AS2R
     cx = cos(xp)
     sx = sin(xp)
     cy = cos(yp)
@@ -381,10 +384,13 @@ function pef2tod76_vel(
     )
     R = pef2tod76_matrix(JD)
     useJD = JD isa MJDate ? JD : jdate_to_mjdate(JD)
-    firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(useJD.epoch[1] + useJD.epoch[2])) - firstDate
+    date = Int(floor(useJD.epoch[1] + useJD.epoch[2]))
+    if date > maxEOP
+        @info "The requested date is beyond the date range of loaded EOP values. Continuing with the EOP values at the last loaded date."
+        date = maxEOP
+    end
 
-    LOD = EOP[date, :LOD]
+    LOD = EOP[date].LOD
 
     omega = SA[0, 0, 7.292115146706979e-5 * (1 - LOD / 86400)]
     return (R * (vel + cross(omega, pos)))
@@ -414,10 +420,13 @@ function tod2pef76_vel(
     )
     R = pef2tod76_matrix(JD)
     useJD = JD isa MJDate ? JD : jdate_to_mjdate(JD)
-    firstDate = EOP[1, :MJD] - 1
-    date = Int(floor(useJD.epoch[1] + useJD.epoch[2])) - firstDate
+    date = Int(floor(useJD.epoch[1] + useJD.epoch[2]))
+    if date > maxEOP
+        @info "The requested date is beyond the date range of loaded EOP values. Continuing with the EOP values at the last loaded date."
+        date = maxEOP
+    end
 
-    LOD = EOP[date, :LOD]
+    LOD = EOP[date].LOD
 
     omega = SA[0, 0, 7.292115146706979e-5 * (1 - LOD / 86400)]
 

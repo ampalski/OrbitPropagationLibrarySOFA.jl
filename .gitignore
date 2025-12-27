@@ -1,2 +1,5 @@
 /Manifest.toml
 /SOFA/
+/data/EOP.jld2.bak
+/EOP-All.csv
+/parse_EOP.jl
