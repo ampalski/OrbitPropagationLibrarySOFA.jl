@@ -166,7 +166,7 @@ version = "3.5.4+0"
 deps = ["FileIO", "JLD2", "StaticArrays"]
 path = "."
 uuid = "38b9e004-e2fa-4648-aa91-337faf7b69aa"
-version = "0.3.0"
+version = "0.3.1"
 
 [[deps.OrderedCollections]]
 git-tree-sha1 = "05868e21324cede2207c6f0f466b4bfef6d5e7ee"
