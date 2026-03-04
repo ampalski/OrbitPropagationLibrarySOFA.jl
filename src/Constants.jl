@@ -193,7 +193,11 @@ const nutTerms = [
     -1.0 -1.0 0.0 2.0 1.0 1.0 0.0 0.0 0.0;
     0.0 1.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0
 ]
-const mtab = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+const mtab = SA[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+const mtab_leap = SA[31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+const cum_mtab = SA[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365]
+const cum_mtab_leap = SA[0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366]
+
 
 pos_inds = SA[1, 2, 3]
 vel_inds = SA[4, 5, 6]
@@ -249,7 +253,7 @@ Requires an update with every new leap second.
 
 Derived from SOFA's `iauDat`
 """
-function dat_datevec(dateVec::Vector{Float64})
+function dat_datevec(dateVec::AbstractVector)
     _, MJD = datevec2jdate(dateVec)
     return dat(MJD)
 end
