@@ -5,8 +5,8 @@
     JD, MJD = datevec2jdate(date1)
     JD2, MJD2 = datevec2jdate(date2)
 
-    @test isapprox(sum(JD.epoch), 2460459.8614598; atol=1e-5)
-    @test isapprox(sum(JD2.epoch[1]), 2451179.5000000; atol=1e-5)
+    @test isapprox(sum(JD.epoch), 2460459.8614598; atol = 1.0e-5)
+    @test isapprox(sum(JD2.epoch[1]), 2451179.5; atol = 1.0e-5)
     @test JD2.epoch[2] == 0.0
     @test MJD2.epoch[2] == 0.0
     @test MJD2.epoch[1] == 51179.0
@@ -16,17 +16,17 @@
 
     @test date2_new == [1999.0, 1, 1, 0, 0, 0]
     @test date1_new[3] == 29.0
-    @test isapprox(date1_new[6], 30.0; atol=1e-10)
+    @test isapprox(date1_new[6], 30.0; atol = 1.0e-10)
 
 end
 
 @testset "JDATE SOFA" begin
     date1 = [1994.0, 6, 30, 23, 59, 60.13599]
     date2 = [2003.0, 6, 1, 0, 0, 0]
-    JD, MJD = datevec2jdate(date1, system=:UTC)
+    JD, MJD = datevec2jdate(date1, system = :UTC)
     JD2, MJD2 = datevec2jdate(date2)
 
-    @test isapprox(sum(JD.epoch), 2449534.49999, atol=1e-6)
+    @test isapprox(sum(JD.epoch), 2449534.49999, atol = 1.0e-6)
     @test MJD2.epoch[1] == 52791.0
     @test MJD2.epoch[2] == 0
 
@@ -35,7 +35,7 @@ end
 
     @test date2_new == [2003.0, 6, 1, 0, 0, 0]
     @test date1_new[3] == 30.0
-    @test isapprox(date1_new[6], 60.13599; atol=1e-4)
+    @test isapprox(date1_new[6], 60.13599; atol = 1.0e-4)
 end
 
 @testset "fixJDate" begin
@@ -46,12 +46,12 @@ end
     date5 = [2024.0, 6, -1, 12, 12, 12]
     date6 = [2024.0, 6, 1, -12, 12, 12]
 
-    fixdatevec!(date1)
-    fixdatevec!(date2)
-    fixdatevec!(date3)
-    fixdatevec!(date4)
-    fixdatevec!(date5)
-    fixdatevec!(date6)
+    date1 = fixdatevec(date1)
+    date2 = fixdatevec(date2)
+    date3 = fixdatevec(date3)
+    date4 = fixdatevec(date4)
+    date5 = fixdatevec(date5)
+    date6 = fixdatevec(date6)
 
     @test date1 == [2024.0, 5, 30, 1, 40, 30]
     @test date2 == [2024.0, 6, 1, 0, 40, 30]
@@ -61,6 +61,3 @@ end
     @test date6 == [2024.0, 5, 31, 12, 12, 12]
 
 end
-
-
-

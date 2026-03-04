@@ -10,7 +10,7 @@ using StaticArrays
 export JulianDate, JDate, MJDate
 export jdate_to_mjdate, mjdate_to_jdate
 export datevec2jdate, jdate2datevec
-export fixdatevec, fixdatevec!
+export fixdatevec
 export dat, dat_datevec
 export convert_jd
 export juliancentury

@@ -20,7 +20,7 @@ can be found in `(M)JD.epoch`
 
 Derived from SOFA's `cal2jd` and `dtf2d`
 """
-function datevec2jdate(dateVec::Vector{Float64}; system::Symbol = :UTC)
+function datevec2jdate(dateVec::AbstractVector; system::Symbol = :UTC)
     if dateVec[1] < -4799
         error("Year field out of bounds")
     elseif dateVec[2] < 1 || dateVec[2] > 12
@@ -65,7 +65,7 @@ function datevec2jdate(dateVec::Vector{Float64}; system::Symbol = :UTC)
     return (JDate(SA[jd, frac], system), MJDate(SA[mjd, frac], system))
 end
 
-leapYear(x) = x % 4 == 0 && (x % 100 != 0 || x % 400 == 0)
+@inline leapYear(x) = x % 4 == 0 && (x % 100 != 0 || x % 400 == 0)
 
 """
     dateVec = jdate2datevec(JD)
@@ -87,7 +87,7 @@ function jdate2datevec(JD::JulianDate)
 
     # Convert to full JD if MJD
 
-    useJD = JD isa JDate ? copy(JD.epoch) : SA[JD.epoch[1] + JM0, JD.epoch[2]]
+    useJD = JD isa JDate ? JD.epoch : (SA[JD.epoch[1] + JM0, JD.epoch[2]])
     j = sum(useJD)
 
     # Check for date range, algorithm only valid for (1900,2100)
@@ -107,18 +107,16 @@ function jdate2datevec(JD::JulianDate)
         days = (j - 2415019.5) - ((yr - 1900) * 365.0 + leapYrs)
     end
 
-    if yr % 4 == 0
-        mtab[2] = 29
-    end
+    mt = leapYear(yr) ? cum_mtab_leap : cum_mtab
 
     dayOfYear = trunc(days)
     month = 0
-    while sum(mtab[1:(month + 1)]) < dayOfYear
+    while mt[month + 1] < dayOfYear
         month += 1
     end
-    day = dayOfYear - sum(mtab[1:month])
-    month += 1
-    mtab[2] = 28
+    # day = dayOfYear - sum(mt[1:month])
+    day = dayOfYear - mt[month]
+    # month += 1
 
     #Separate date from fraction (-.5 < f < .5)
     d = round(useJD[1])
@@ -195,17 +193,17 @@ function jdate2datevec(JD::JulianDate)
                 hr = 0.0
                 min = 0.0
                 sec = 0.0 + (sec - trunc(sec))
-                return fixdatevec([yr, month, day, hr, min, sec])
+                return fixdatevec(yr, month, day, hr, min, sec)
             else
                 hr = 23.0
                 min = 59.0
                 sec = 60.0 + (sec - trunc(sec))
             end
         else
-            return fixdatevec([yr, month, day, hr, min, sec])
+            return fixdatevec(yr, month, day, hr, min, sec)
         end
     end
-    return [yr, month, day, hr, min, sec]
+    return SA[yr, month, day, hr, min, sec]
 end
 # This is the SOFA version, which currently gives incorrect day values.
 #function JDate2dateVec(JD::Vector{Float64}; type::Symbol=:JD)
@@ -294,14 +292,12 @@ For example, [2024., 5, 32, 0, 0, 0] will be adjusted to [2024., 6, 1, 0, 0, 0]
 Currently accounts for leap years but not leap seconds. May still have issues
 if required to cross multiple leap years.
 """
-function fixdatevec(dateVec::Vector{Float64})
-    temp = copy(dateVec)
-    fixdatevec!(temp)
-    return temp
-end
+fixdatevec(dateVec::Vector{Float64}) = fixdatevec(dateVec...)
+
+fixdatevec(dateVec::SVector{6, Float64}) = fixdatevec(dateVec...)
 
 """
-    fixdatevec!(dateVec)
+    newDateVec = fixdatevec(dateVec)
 
 Adjust a date vector to account for out of bounds conditions.
 
@@ -310,62 +306,59 @@ For example, [2024., 5, 32, 0, 0, 0] will be adjusted to [2024., 6, 1, 0, 0, 0]
 Currently accounts for leap years but not leap seconds. May still have issues
 if required to cross multiple leap years.
 """
-function fixdatevec!(dateVec::Vector{Float64})
+function fixdatevec(yr::Real, mon::Real, day::Real, hr::Real, min::Real, sec::Real)
 
-    if dateVec[6] >= 60 || dateVec[6] < 0
-        temp = floor(dateVec[6] / 60.0)
-        dateVec[5] += temp
-        dateVec[6] -= temp * 60.0
+    if sec >= 60 || sec < 0
+        temp = floor(sec / 60.0)
+        min += temp
+        sec -= temp * 60.0
     end
-    if dateVec[5] >= 60 || dateVec[5] < 0
-        temp = floor(dateVec[5] / 60.0)
-        dateVec[4] += temp
-        dateVec[5] -= temp * 60.0
+    if min >= 60 || min < 0
+        temp = floor(min / 60.0)
+        hr += temp
+        min -= temp * 60.0
     end
-    if dateVec[4] >= 24 || dateVec[4] < 0
-        temp = floor(dateVec[4] / 24.0)
-        dateVec[3] += temp
-        dateVec[4] -= temp * 24.0
-    end
-
-    if dateVec[2] > 12 || dateVec[2] < 1
-        temp = floor(dateVec[2] / 12)
-        dateVec[1] += temp
-        dateVec[2] -= temp * 12.0
+    if hr >= 24 || hr < 0
+        temp = floor(hr / 24.0)
+        day += temp
+        hr -= temp * 24.0
     end
 
-    yr = dateVec[1]
-    mtab[2] += leapYear(yr)
-    dayOfYear = sum(mtab[1:(Int(dateVec[2]) - 1)]) + dateVec[3]
+    if mon > 12 || mon < 1
+        temp = floor(mon / 12)
+        yr += temp
+        mon -= temp * 12.0
+    end
+
+    isLeapYear = leapYear(yr)
+    mt = isLeapYear ? cum_mtab_leap : cum_mtab
+    dayOfYear = mt[Int(mon)] + day
 
     while dayOfYear < 1
         yr -= 1
-        if leapYear(yr)
+        isLeapYear = leapYear(yr)
+        if isLeapYear
             dayOfYear += 366.0
         else
             dayOfYear += 365.0
         end
     end
-    days = leapYear(yr) ? 366.0 : 365.0
+    days = isLeapYear ? 366.0 : 365.0
     while dayOfYear > days
         yr += 1
-        if leapYear(yr)
+        isLeapYear = leapYear(yr)
+        if isLeapYear
             dayOfYear -= days
         else
             dayOfYear -= days
         end
-        days = leapYear(yr) ? 366.0 : 365.0
+        days = isLeapYear ? 366.0 : 365.0
     end
 
-    dateVec[1] = yr
-    i = 1
-    while dayOfYear > mtab[i]
-        dayOfYear -= mtab[i]
-        i += 1
-    end
-    mtab[2] = 28
-    dateVec[2] = i
-    return dateVec[3] = dayOfYear
+    mt = isLeapYear ? cum_mtab_leap : cum_mtab
+    mon = findlast(dayOfYear .> mt)
+    day = dayOfYear - mt[mon]
+    return SA[yr, mon, day, hr, min, sec]
 end
 
 """
@@ -452,6 +445,12 @@ The `type` optional input specifies if the input `JD` is the full Julian Date
 Derived from SOFA's `utctai`
 """
 function _utc2tai(JD::JulianDate)
+    m = JD isa JDate ? jdate_to_mjdate(JD) : JD
+
+    # if later than 1972, don't need to deal with drift terms
+    if sum(m.epoch) >= 41317
+        return _utc2tai_simple(JD)
+    end
     # Get ΔAT at 0h
     dv = jdate2datevec(JD)
     dat0 = dat_datevec(vcat(dv[1:3], zeros(3)))
@@ -460,7 +459,7 @@ function _utc2tai(JD::JulianDate)
     dat12 = dat_datevec(vcat(dv[1:3], [12.0, 0, 0]))
 
     # Get ΔAT at 0h tomorrow to detect jumps
-    dat24 = dat_datevec(fixdatevec(vcat(dv[1:2], dv[3] + 1, zeros(3))))
+    dat24 = dat_datevec(fixdatevec(dv[1], dv[2], dv[3] + 1, 0.0, 0.0, 0.0))
 
     # Separate ΔAT change inter per-day and any jump
     dlod = 2.0 * (dat12 - dat0)
@@ -485,6 +484,17 @@ function _utc2tai(JD::JulianDate)
         tai = JDate(SA[JD.epoch[1], a2], :TAI)
     else
         tai = MJDate(SA[JD.epoch[1], a2], :TAI)
+    end
+    return tai
+end
+
+function _utc2tai_simple(JD::JulianDate)
+    m = JD isa JDate ? jdate_to_mjdate(JD) : JD
+    Δat = dat(m)
+    if JD isa JDate
+        tai = JDate(SA[JD.epoch[1], JD.epoch[2] + Δat / 86400.0], :TAI)
+    else
+        tai = MJDate(SA[JD.epoch[1], JD.epoch[2] + Δat / 86400.0], :TAI)
     end
     return tai
 end
@@ -533,10 +543,22 @@ function _ut12utc(JD::JulianDate)
     duts = dut1(JD)
     dats1 = 0.0
     d1 = u1
+    m = JD isa JDate ? u1 + u2 - JM0 : u1 + u2
+    if minimum(abs.(m .- changes[:, 1])) > 3
+        u2 -= duts / 86400.0
+        if JD isa JDate
+            utc = JDate(SA[u1, u2], :UTC)
+        else
+            utc = MJDate(SA[u1, u2], :UTC)
+        end
+        return utc
+    end
 
     for i in -1:3
         d2 = u2 + i
-        dateVec = jdate2datevec(JD)
+        checkJD = JD isa JDate ? JDate(SA[d1, d2], JD.system) : MJDate(SA[d1, d2], JD.system)
+
+        dateVec = jdate2datevec(checkJD)
         dats2 = dat_datevec(vcat(dateVec[1:3], zeros(3)))
         if i == -1
             dats1 = dats2
@@ -551,11 +573,11 @@ function _ut12utc(JD::JulianDate)
             # UT1 for the start of the UTC day that ends in a leap
             j, m = datevec2jdate(vcat(dateVec[1:3], zeros(3)))
             if JD isa MJDate
-                d1 = m[1]
-                d2 = m[2]
+                d1 = m.epoch[1]
+                d2 = m.epoch[2]
             else
-                d1 = j[1]
-                d2 = j[2]
+                d1 = j.epoch[1]
+                d2 = j.epoch[2]
             end
             us1 = d1
             us2 = d2 - 1.0 + duts / 86400
