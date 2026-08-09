@@ -4,23 +4,23 @@
 
 module OrbitPropagationLibrarySOFA
 
-using JLD2, FileIO
+using FileIO, JLD2
 using StaticArrays
 
-export JulianDate, JDate, MJDate
+export JDate, JulianDate, MJDate
 export jdate_to_mjdate, mjdate_to_jdate
 export datevec2jdate, jdate2datevec
 export fixdatevec
 export dat, dat_datevec
 export convert_jd
 export juliancentury
-export gmst, gast
-export itrf2pef76_matrix, itrf2pef76, pef2itrf76
-export pef2tod76_matrix, pef2tod76, pef2tod76_vel, tod2pef76, tod2pef76_vel
-export tod2mod76_matrix, tod2mod76, mod2tod76
-export mod2j200076_matrix, mod2j200076, j20002mod76
-export teme2tod_matrix, teme2tod, tod2teme
-export convert_pos, convert_state, convert_posvel, convert_vel
+export gast, gmst
+export itrf2pef76, itrf2pef76_matrix, pef2itrf76
+export pef2tod76, pef2tod76_matrix, pef2tod76_vel, tod2pef76, tod2pef76_vel
+export mod2tod76, tod2mod76, tod2mod76_matrix
+export j20002mod76, mod2j200076, mod2j200076_matrix
+export teme2tod, teme2tod_matrix, tod2teme
+export convert_pos, convert_posvel, convert_state, convert_vel
 
 # Include constituent files
 include("Utils.jl")
